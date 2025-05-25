@@ -11,8 +11,8 @@ public class WelcomeController {
      * for all routes that don't match API endpoints.
      * This allows for client-side routing in the SPA.
      */
-    @GetMapping(value = {"", "/", "/lobby", "/game/**"})
-    public String home() {
+    @GetMapping("/")
+    public String welcome() {
         return "index";
     }
 }
