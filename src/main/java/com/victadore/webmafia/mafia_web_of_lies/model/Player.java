@@ -20,6 +20,9 @@ public class Player {
     @Column(nullable = false)
     private Role role;
 
+    @Column(nullable = false)
+    private boolean isInvestigated = false;
+
     @ManyToOne
     @JoinColumn(name = "game_id")
     private Game game;

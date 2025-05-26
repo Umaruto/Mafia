@@ -1,6 +1,7 @@
 package com.victadore.webmafia.mafia_web_of_lies.model;
 
 import java.util.List;
+import java.util.*;
 
 import jakarta.persistence.*;
 import lombok.Data;
@@ -25,6 +26,12 @@ public class Game {
     private int currentDay;
 
     private int currentPhase;
+
+    @ElementCollection
+    private Map<Long, Integer> votes = new HashMap<>();
+
+    @ElementCollection
+    private Set<Long> playersWhoVoted = new HashSet<>();
 
     private int minPlayers;   // Minimum number of players required to start
     private int maxPlayers;   // Maximum number of players allowed
