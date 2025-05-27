@@ -1,8 +1,10 @@
 package com.victadore.webmafia.mafia_web_of_lies.controller;
 
-import com.victadore.webmafia.mafia_web_of_lies.model.Game;
-import com.victadore.webmafia.mafia_web_of_lies.service.GameService;
+import com.victadore.webmafia.mafia_web_of_lies.exception.*;
+import com.victadore.webmafia.mafia_web_of_lies.model.*;
+import com.victadore.webmafia.mafia_web_of_lies.service.*;
 import org.springframework.http.ResponseEntity;
+import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -18,6 +20,20 @@ public class GameController {
     public ResponseEntity<Game> createGame(@RequestParam String createdBy) {
         Game game = gameService.createGame(createdBy);
         return ResponseEntity.ok(game);
+    }
+
+    @GetMapping("/game/{gameCode}")
+    public String gamePage(@PathVariable String gameCode, 
+                        @RequestParam String username,  // Add this parameter
+                        Model model) {
+        Game game = gameService.getGameByCode(gameCode);
+        if (game == null) {
+            throw new GameException("Game not found");
+        }
+        
+        model.addAttribute("gameCode", gameCode);
+        model.addAttribute("username", username);  // Add this line
+        return "game";
     }
 
     @PostMapping("/{gameCode}/join")

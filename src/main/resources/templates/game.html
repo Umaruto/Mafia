@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mafia: Web of Lies</title>
+    <link rel="icon" type="image/x-icon" href="/favicon/favicon.ico">
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Custom CSS -->
+    <link href="/css/game.css" rel="stylesheet">
+    <!-- WebSocket Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.5.0/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+</head>
+<body>
+    <div class="container-fluid game-container">
+        <!-- Game Header -->
+        <div class="row game-header">
+            <div class="col">
+                <h1>Mafia: Web of Lies</h1>
+                <div class="game-info">
+                    <span>Game Code: <span id="gameCode" th:text="${gameCode}"></span></span>
+                    <input type="hidden" id="username" th:value="${username}">
+                    <span>Day: <span id="day">1</span></span>
+                    <span>Phase: <span id="phase">DAY</span></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Game Area -->
+        <div class="row game-content">
+            <!-- Player List -->
+            <div class="col-md-3 player-list">
+                <h3>Players</h3>
+                <div id="playersList" class="list-group">
+                    <!-- Players will be dynamically added here -->
+                </div>
+            </div>
+
+            <!-- Game Actions -->
+            <div class="col-md-6 game-actions">
+                <div id="dayActions" class="action-panel">
+                    <h3>Day Phase</h3>
+                    <div class="voting-section">
+                        <select id="voteTarget" class="form-select">
+                            <option value="">Select player to vote</option>
+                        </select>
+                        <button id="voteButton" class="btn btn-primary">Vote</button>
+                        <button id="skipVoteButton" class="btn btn-secondary">Skip Vote</button>
+                    </div>
+                </div>
+
+                <div id="nightActions" class="action-panel" style="display: none;">
+                    <h3>Night Phase</h3>
+                    <div class="role-actions">
+                        <!-- Role-specific actions will be dynamically added here -->
+                    </div>
+                </div>
+
+                <!-- Game Chat -->
+                <div class="chat-section">
+                    <h3>Game Chat</h3>
+                    <div id="chatMessages" class="chat-messages"></div>
+                    <div class="chat-input">
+                        <input type="text" id="chatInput" class="form-control" placeholder="Type your message...">
+                        <button id="sendMessage" class="btn btn-primary">Send</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Game Info -->
+            <div class="col-md-3 game-info-panel">
+                <h3>Game Information</h3>
+                <div id="gameStatus" class="status-section">
+                    <!-- Game status will be dynamically updated -->
+                </div>
+                <div id="roleInfo" class="role-section">
+                    <!-- Role information will be shown here -->
+                </div>
+                <div id="votingStatus" class="voting-section">
+                    <!-- Voting status will be shown here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Modals -->
+    <div class="modal fade" id="gameOverModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Game Over</h5>
+                </div>
+                <div class="modal-body">
+                    <p id="gameOverMessage"></p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" onclick="location.href='/'">Return to Home</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Game WebSocket -->
+    <script src="/js/game-websocket.js"></script>
+    <!-- Game Logic -->
+    <script src="/js/game.js"></script>
+</body>
+</html>

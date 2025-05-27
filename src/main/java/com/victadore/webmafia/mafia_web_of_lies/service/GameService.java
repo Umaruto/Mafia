@@ -82,6 +82,14 @@ public class GameService {
         
     }
 
+    public Game getGameByCode(String gameCode) {
+        Game game = gameRepository.findByGameCode(gameCode);
+        if (game == null) {
+            throw new GameException("Game not found");
+        }
+        return game;
+    }
+
     private String generateGameCode(){
         return UUID.randomUUID().toString().substring(0, 6).toUpperCase();
     }

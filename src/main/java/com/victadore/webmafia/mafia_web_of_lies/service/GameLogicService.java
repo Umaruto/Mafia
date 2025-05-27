@@ -2,7 +2,7 @@ package com.victadore.webmafia.mafia_web_of_lies.service;
 
 import com.victadore.webmafia.mafia_web_of_lies.model.*;
 import com.victadore.webmafia.mafia_web_of_lies.repository.GameRepository;
-import com.victadore.webmafia.mafia_web_of_lies.dto.VoteRequest;
+import com.victadore.webmafia.mafia_web_of_lies.dto.*;
 import com.victadore.webmafia.mafia_web_of_lies.exception.GameException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,11 +15,13 @@ public class GameLogicService {
     private final GameService gameService;
     private final PlayerService playerService;
     private final GameRepository gameRepository;
+    private final WebSocketService webSocketService;
 
-    public GameLogicService(GameService gameService, PlayerService playerService, GameRepository gameRepository) {
+    public GameLogicService(GameService gameService, PlayerService playerService, GameRepository gameRepository, WebSocketService webSocketService) {
         this.gameService = gameService;
         this.playerService = playerService;
         this.gameRepository = gameRepository;
+        this.webSocketService = webSocketService;
     }
 
     // Start a new day phase
@@ -31,7 +33,17 @@ public class GameLogicService {
 
         game.setCurrentPhase(0); // 0 for day
         game.setCurrentDay(game.getCurrentDay() + 1);
-        return gameRepository.save(game);
+        Game savedGame = gameRepository.save(game);
+        
+        // Broadcast phase change
+        webSocketService.broadcastGameUpdate(gameCode, 
+            new GameEvent("PHASE_CHANGE", gameCode, Map.of(
+                "phase", "DAY",
+                "day", savedGame.getCurrentDay()
+            ))
+        );
+        
+        return savedGame;
     }
 
     // Start night phase
@@ -42,7 +54,17 @@ public class GameLogicService {
         }
 
         game.setCurrentPhase(1); // 1 for night
-        return gameRepository.save(game);
+        Game savedGame = gameRepository.save(game);
+        
+        // Broadcast phase change
+        webSocketService.broadcastGameUpdate(gameCode, 
+            new GameEvent("PHASE_CHANGE", gameCode, Map.of(
+                "phase", "NIGHT",
+                "day", savedGame.getCurrentDay()
+            ))
+        );
+        
+        return savedGame;
     }
 
 
@@ -72,18 +94,43 @@ public class GameLogicService {
             case MAFIA:
                 if (actionType.equals("KILL")) {
                     playerService.killPlayer(target.getId());
+                    // Notify about the kill
+                    webSocketService.broadcastGameUpdate(gameCode, 
+                        new GameEvent("PLAYER_KILLED", gameCode, Map.of(
+                            "target", target.getUsername()
+                        ))
+                    );
                 }
                 break;
             case DOCTOR:
                 if (actionType.equals("SAVE")) {
                     playerService.savePlayer(target.getId());
+                    // Notify about the save
+                    webSocketService.sendPrivateMessage(actor.getUsername(), 
+                        new GameEvent("PLAYER_SAVED", gameCode, Map.of(
+                            "target", target.getUsername()
+                        ))
+                    );
                 }
                 break;
             case DETECTIVE:
                 if (actionType.equals("INVESTIGATE")) {
-                    playerService.investigatePlayer(target.getId());
+                    boolean isDetective = playerService.investigatePlayer(target.getId());
+                    // Send investigation result only to the detective
+                    webSocketService.sendPrivateMessage(actor.getUsername(), 
+                        new GameEvent("INVESTIGATION_RESULT", gameCode, Map.of(
+                            "target", target.getUsername(),
+                            "isDetective", isDetective
+                        ))
+                    );
                 }else if (actionType.equals("KILL")) {
                     playerService.killPlayer(target.getId());
+                    // Notify about the kill
+                    webSocketService.broadcastGameUpdate(gameCode, 
+                        new GameEvent("PLAYER_KILLED", gameCode, Map.of(
+                            "target", target.getUsername()
+                        ))
+                    );
                 }
                 
                 break;
@@ -157,7 +204,18 @@ public class GameLogicService {
 
         // Process the vote
         processVote(game, voter, target);
-        return gameRepository.save(game);
+        Game savedGame = gameRepository.save(game);
+        
+        // Broadcast vote
+        webSocketService.broadcastGameUpdate(gameCode, 
+            new GameEvent("VOTE_CAST", gameCode, Map.of(
+                "voter", voteRequest.getVoterUsername(),
+                "target", voteRequest.getTargetUsername(),
+                "skip", voteRequest.isSkip()
+            ))
+        );
+        
+        return savedGame;
     }
 
     private void processVote(Game game, Player voter, Player target) {
