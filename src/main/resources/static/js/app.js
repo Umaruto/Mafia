@@ -22,16 +22,27 @@ document.addEventListener('DOMContentLoaded', function() {
                 body: `createdBy=${encodeURIComponent(username)}`
             });
 
-            if (!response.ok) {
-                throw new Error('Failed to create game');
+            let data;
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                data = await response.json();
+            } else {
+                throw new Error('Server returned non-JSON response');
             }
 
-            const game = await response.json();
-            // Redirect to the game page
-            window.location.href = `/api/games/game/${game.gameCode}?username=${encodeURIComponent(username)}`;
+            if (!response.ok) {
+                throw new Error(data.message || 'Failed to create game');
+            }
+
+            // Redirect to the waiting room
+            window.location.href = `/api/games/${data.gameCode}/waiting-room?username=${encodeURIComponent(username)}`;
         } catch (error) {
             console.error('Error creating game:', error);
-            alert('Failed to create game. Please try again.');
+            if (error instanceof SyntaxError) {
+                alert('Received invalid response from server. Please try again.');
+            } else {
+                alert(error.message || 'Failed to create game. Please try again.');
+            }
         }
     });
 
@@ -51,15 +62,27 @@ document.addEventListener('DOMContentLoaded', function() {
                 body: `username=${encodeURIComponent(username)}`
             });
 
+            let data;
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                data = await response.json();
+            } else {
+                throw new Error('Server returned non-JSON response');
+            }
+            
             if (!response.ok) {
-                throw new Error('Failed to join game');
+                throw new Error(data.message || 'Failed to join game');
             }
 
-            // Redirect to the game page
-            window.location.href = `/api/games/game/${gameCode}?username=${encodeURIComponent(username)}`;
+            // Redirect to the waiting room
+            window.location.href = `/api/games/${gameCode}/waiting-room?username=${encodeURIComponent(username)}`;
         } catch (error) {
             console.error('Error joining game:', error);
-            alert('Failed to join game. Please check the game code and try again.');
+            if (error instanceof SyntaxError) {
+                alert('Received invalid response from server. Please try again.');
+            } else {
+                alert(error.message || 'Failed to join game. Please check the game code and try again.');
+            }
         }
     });
 }); 

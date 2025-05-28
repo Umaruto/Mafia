@@ -4,99 +4,129 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mafia: Web of Lies</title>
-    <link rel="icon" type="image/x-icon" href="/favicon/favicon.ico">
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Custom CSS -->
-    <link href="/css/game.css" rel="stylesheet">
-    <!-- WebSocket Libraries -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.5.0/sockjs.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    <style>
+        .game-container {
+            padding: 20px;
+        }
+        .game-header {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .player-list {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .player-item {
+            padding: 8px;
+            margin: 5px 0;
+            background-color: white;
+            border-radius: 3px;
+            border: 1px solid #dee2e6;
+        }
+        .player-dead {
+            background-color: #f8d7da;
+            text-decoration: line-through;
+        }
+        .game-actions {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        .role-info {
+            background-color: #d1ecf1;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+    </style>
 </head>
 <body>
     <div class="container-fluid game-container">
         <!-- Game Header -->
-        <div class="row game-header">
+        <div class="row">
             <div class="col">
-                <h1>Mafia: Web of Lies</h1>
-                <div class="game-info">
-                    <span>Game Code: <span id="gameCode" th:text="${gameCode}"></span></span>
-                    <input type="hidden" id="username" th:value="${username}">
-                    <span>Day: <span id="day">1</span></span>
-                    <span>Phase: <span id="phase">DAY</span></span>
+                <div class="game-header">
+                    <h1>Mafia: Web of Lies</h1>
+                    <div class="game-info">
+                        <span>Game Code: <span id="gameCode" th:text="${gameCode}"></span></span>
+                        <input type="hidden" id="username" th:value="${username}">
+                        <span>Day: <span id="day">1</span></span>
+                        <span>Phase: <span id="phase">DAY</span></span>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- Main Game Area -->
-        <div class="row game-content">
+        <div class="row">
             <!-- Player List -->
-            <div class="col-md-3 player-list">
-                <h3>Players</h3>
-                <div id="playersList" class="list-group">
-                    <!-- Players will be dynamically added here -->
+            <div class="col-md-4">
+                <div class="player-list">
+                    <h3>Players</h3>
+                    <div id="playersList">
+                        <!-- Players will be dynamically added here -->
+                    </div>
+                </div>
+                
+                <div class="role-info">
+                    <h4>Your Role</h4>
+                    <div id="roleInfo">
+                        <p>Loading...</p>
+                    </div>
                 </div>
             </div>
 
             <!-- Game Actions -->
-            <div class="col-md-6 game-actions">
-                <div id="dayActions" class="action-panel">
-                    <h3>Day Phase</h3>
-                    <div class="voting-section">
-                        <select id="voteTarget" class="form-select">
-                            <option value="">Select player to vote</option>
-                        </select>
-                        <button id="voteButton" class="btn btn-primary">Vote</button>
-                        <button id="skipVoteButton" class="btn btn-secondary">Skip Vote</button>
+            <div class="col-md-8">
+                <div class="game-actions">
+                    <h3 id="phaseTitle">Game Actions</h3>
+                    <div id="gameContent">
+                        <!-- Day Phase Actions -->
+                        <div id="dayPhase" style="display: none;">
+                            <h4>Day Phase - Discussion and Voting</h4>
+                            <p>Discuss with other players and vote to eliminate someone you suspect is Mafia.</p>
+                            
+                            <div class="voting-section mt-3">
+                                <label for="voteSelect">Vote to eliminate:</label>
+                                <select id="voteSelect" class="form-select mb-2">
+                                    <option value="">Select a player...</option>
+                                </select>
+                                <div>
+                                    <button id="voteBtn" class="btn btn-danger me-2">Vote</button>
+                                    <button id="skipVoteBtn" class="btn btn-secondary">Skip Vote</button>
+                                </div>
+                            </div>
+                            
+                            <div id="votingStatus" class="mt-3">
+                                <h5>Voting Status:</h5>
+                                <div id="votesList"></div>
+                            </div>
+                        </div>
+                        
+                        <!-- Night Phase Actions -->
+                        <div id="nightPhase" style="display: none;">
+                            <h4>Night Phase</h4>
+                            <div id="nightActions">
+                                <!-- Role-specific actions will be shown here -->
+                            </div>
+                        </div>
+                        
+                        <!-- Game Over -->
+                        <div id="gameOver" style="display: none;">
+                            <h4>Game Over!</h4>
+                            <div id="winnerMessage"></div>
+                            <button class="btn btn-primary mt-3" onclick="location.href='/'">Return to Home</button>
+                        </div>
+                        
+                        <div class="mt-3">
+                            <button id="refreshBtn" class="btn btn-primary">Refresh Game State</button>
+                        </div>
                     </div>
-                </div>
-
-                <div id="nightActions" class="action-panel" style="display: none;">
-                    <h3>Night Phase</h3>
-                    <div class="role-actions">
-                        <!-- Role-specific actions will be dynamically added here -->
-                    </div>
-                </div>
-
-                <!-- Game Chat -->
-                <div class="chat-section">
-                    <h3>Game Chat</h3>
-                    <div id="chatMessages" class="chat-messages"></div>
-                    <div class="chat-input">
-                        <input type="text" id="chatInput" class="form-control" placeholder="Type your message...">
-                        <button id="sendMessage" class="btn btn-primary">Send</button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Game Info -->
-            <div class="col-md-3 game-info-panel">
-                <h3>Game Information</h3>
-                <div id="gameStatus" class="status-section">
-                    <!-- Game status will be dynamically updated -->
-                </div>
-                <div id="roleInfo" class="role-section">
-                    <!-- Role information will be shown here -->
-                </div>
-                <div id="votingStatus" class="voting-section">
-                    <!-- Voting status will be shown here -->
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Game Modals -->
-    <div class="modal fade" id="gameOverModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Game Over</h5>
-                </div>
-                <div class="modal-body">
-                    <p id="gameOverMessage"></p>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-primary" onclick="location.href='/'">Return to Home</button>
                 </div>
             </div>
         </div>
@@ -104,9 +134,150 @@
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- Game WebSocket -->
-    <script src="/js/game-websocket.js"></script>
-    <!-- Game Logic -->
-    <script src="/js/game.js"></script>
+    <script th:inline="javascript">
+        const gameCode = /*[[${gameCode}]]*/ '';
+        const username = /*[[${username}]]*/ '';
+        let currentPlayerRole = '';
+
+        function loadGameState() {
+            // Load players
+            fetch(`/api/games/${gameCode}/players`)
+                .then(response => response.json())
+                .then(players => {
+                    const playersList = document.getElementById('playersList');
+                    playersList.innerHTML = '';
+                    
+                    // Update vote select options
+                    const voteSelect = document.getElementById('voteSelect');
+                    voteSelect.innerHTML = '<option value="">Select a player...</option>';
+                    
+                    players.forEach(player => {
+                        const playerDiv = document.createElement('div');
+                        playerDiv.className = 'player-item';
+                        playerDiv.textContent = player.username;
+                        if (player.username === username) {
+                            playerDiv.textContent += ' (You)';
+                        }
+                        // TODO: Show if player is dead
+                        playersList.appendChild(playerDiv);
+                        
+                        // Add to vote options (exclude self)
+                        if (player.username !== username) {
+                            const option = document.createElement('option');
+                            option.value = player.username;
+                            option.textContent = player.username;
+                            voteSelect.appendChild(option);
+                        }
+                    });
+                })
+                .catch(error => {
+                    console.error('Error loading players:', error);
+                });
+
+            // Load game info
+            fetch(`/api/games/${gameCode}`)
+                .then(response => response.json())
+                .then(game => {
+                    document.getElementById('day').textContent = game.currentDay;
+                    
+                    // Update phase display
+                    const phaseText = game.currentPhase === 0 ? 'DAY' : 'NIGHT';
+                    document.getElementById('phase').textContent = phaseText;
+                    document.getElementById('phaseTitle').textContent = `${phaseText} PHASE - Day ${game.currentDay}`;
+                    
+                    // Show appropriate phase content
+                    if (game.gameState === 'FINISHED') {
+                        showGameOver(game.winner);
+                    } else if (game.currentPhase === 0) {
+                        showDayPhase();
+                    } else {
+                        showNightPhase();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading game state:', error);
+                });
+
+            // Load player role
+            fetch(`/api/games/${gameCode}/player/${username}/role`)
+                .then(response => response.json())
+                .then(roleData => {
+                    currentPlayerRole = roleData.role;
+                    const roleInfo = document.getElementById('roleInfo');
+                    roleInfo.innerHTML = `
+                        <h5>${roleData.role}</h5>
+                        <p>${roleData.description}</p>
+                    `;
+                })
+                .catch(error => {
+                    console.error('Error loading role:', error);
+                    document.getElementById('roleInfo').innerHTML = '<p>Error loading role information</p>';
+                });
+        }
+
+        function showDayPhase() {
+            document.getElementById('dayPhase').style.display = 'block';
+            document.getElementById('nightPhase').style.display = 'none';
+            document.getElementById('gameOver').style.display = 'none';
+        }
+
+        function showNightPhase() {
+            document.getElementById('dayPhase').style.display = 'none';
+            document.getElementById('nightPhase').style.display = 'block';
+            document.getElementById('gameOver').style.display = 'none';
+            
+            // Show role-specific night actions
+            const nightActions = document.getElementById('nightActions');
+            if (currentPlayerRole === 'MAFIA') {
+                nightActions.innerHTML = '<p>Choose a player to eliminate tonight.</p><p>Coordinate with other Mafia members.</p>';
+            } else if (currentPlayerRole === 'DOCTOR') {
+                nightActions.innerHTML = '<p>Choose a player to save tonight (including yourself).</p>';
+            } else if (currentPlayerRole === 'DETECTIVE') {
+                nightActions.innerHTML = '<p>Choose a player to investigate tonight.</p>';
+            } else {
+                nightActions.innerHTML = '<p>Sleep tight! Wait for the day phase to begin.</p>';
+            }
+        }
+
+        function showGameOver(winner) {
+            document.getElementById('dayPhase').style.display = 'none';
+            document.getElementById('nightPhase').style.display = 'none';
+            document.getElementById('gameOver').style.display = 'block';
+            
+            const winnerMessage = document.getElementById('winnerMessage');
+            if (winner === 'MAFIA') {
+                winnerMessage.innerHTML = '<h5 class="text-danger">Mafia Wins!</h5><p>The Mafia has successfully taken over the town.</p>';
+            } else {
+                winnerMessage.innerHTML = '<h5 class="text-success">Citizens Win!</h5><p>All Mafia members have been eliminated!</p>';
+            }
+        }
+
+        // Vote button handler
+        document.getElementById('voteBtn').addEventListener('click', function() {
+            const selectedPlayer = document.getElementById('voteSelect').value;
+            if (!selectedPlayer) {
+                alert('Please select a player to vote for.');
+                return;
+            }
+            
+            // TODO: Implement voting API call
+            alert(`Voting for ${selectedPlayer} - This will be implemented next!`);
+        });
+
+        // Skip vote button handler
+        document.getElementById('skipVoteBtn').addEventListener('click', function() {
+            // TODO: Implement skip vote API call
+            alert('Skip vote - This will be implemented next!');
+        });
+
+        // Refresh button handler
+        document.getElementById('refreshBtn').addEventListener('click', loadGameState);
+
+        // Initial load
+        loadGameState();
+
+        // Auto-refresh every 5 seconds
+        setInterval(loadGameState, 5000);
+    </script>
 </body>
 </html>

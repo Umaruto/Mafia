@@ -214,6 +214,6 @@ class GameManager {
 // Initialize game when page loads
 document.addEventListener('DOMContentLoaded', function() {
     const gameCode = document.getElementById('gameCode').textContent;
-    const username = document.getElementById('username').textContent;
+    const username = document.getElementById('username').value;
     const gameManager = new GameManager(gameCode, username);
 });

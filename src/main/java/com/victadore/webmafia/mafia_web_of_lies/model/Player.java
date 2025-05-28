@@ -5,12 +5,15 @@ import lombok.Data;
 
 @Entity
 @Data
+@Table(uniqueConstraints = {
+    @UniqueConstraint(columnNames = {"username", "game_id"}, name = "uk_player_username_game")
+})
 public class Player {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true)
+    @Column(nullable = false)
     private String username;
 
     @Column(nullable = false)

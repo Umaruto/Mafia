@@ -39,11 +39,16 @@ public class PlayerService {
             rolesToAssign.add(Role.MAFIA);
         }
 
-        // Add special roles if enough players
-        if (playerCount >= 5) {
+        // Add special roles based on player count
+        if (playerCount >= 6) {
+            // 6+ players: Add both Doctor and Detective
             rolesToAssign.add(Role.DOCTOR);
             rolesToAssign.add(Role.DETECTIVE);
+        } else if (playerCount == 5) {
+            // 5 players: Add only Doctor for balance
+            rolesToAssign.add(Role.DOCTOR);
         }
+        // 4 players: No special roles, just Mafia vs Citizens for simplicity
 
         // Fill remaining slots with Citizens
         while (rolesToAssign.size() < playerCount) {
@@ -64,9 +69,9 @@ public class PlayerService {
 
     // Calculate number of Mafia based on player count
     private int calculateMafiaCount(int playerCount) {
-        if (playerCount <= 5) return 1;
+        if (playerCount <= 4) return 1;
         if (playerCount <= 10) return 2;
-        return 3; // for 9+ players
+        return 3; // for 11+ players
     }
 
 
