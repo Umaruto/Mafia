@@ -106,7 +106,7 @@ public class GameService {
         
         game.setGameState(GameState.IN_PROGRESS);
         game.setCurrentDay(1);
-        game.setCurrentPhase(0); // 0 = Day phase, 1 = Night phase
+        game.setCurrentPhase(1); // 1 = Night phase (game starts with night), 0 = Day phase
         return gameRepository.save(game);
     }
 
@@ -120,6 +120,13 @@ public class GameService {
         }
         
         game.setCurrentPhase(1); // Night phase
+        
+        // Clear votes and reset night targets for night phase
+        game.getVotes().clear();
+        game.getPlayersWhoVoted().clear();
+        game.setMafiaTarget(null);
+        game.setDoctorTarget(null);
+        
         return gameRepository.save(game);
     }
 
@@ -135,9 +142,12 @@ public class GameService {
         game.setCurrentDay(game.getCurrentDay() + 1);
         game.setCurrentPhase(0); // Day phase
         
-        // Clear votes for new day
+        // Clear votes and night actions for new day
         game.getVotes().clear();
         game.getPlayersWhoVoted().clear();
+        game.getPlayersWhoActedAtNight().clear();
+        game.setMafiaTarget(null);
+        game.setDoctorTarget(null);
         
         return gameRepository.save(game);
     }

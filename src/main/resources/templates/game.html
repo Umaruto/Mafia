@@ -44,6 +44,41 @@
             border-radius: 5px;
             margin-bottom: 20px;
         }
+        .vote-status-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 10px;
+            margin: 3px 0;
+            background-color: white;
+            border-radius: 3px;
+            border: 1px solid #dee2e6;
+        }
+        .vote-status.voted {
+            color: #28a745;
+            font-weight: bold;
+        }
+        .vote-status.not-voted {
+            color: #dc3545;
+        }
+        .player-name {
+            font-weight: 500;
+        }
+        .text-danger {
+            color: #dc3545 !important;
+            font-weight: bold;
+        }
+        .text-success {
+            color: #28a745 !important;
+            font-weight: bold;
+        }
+        .text-info {
+            color: #17a2b8 !important;
+            font-weight: bold;
+        }
+        .text-secondary {
+            color: #6c757d !important;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
@@ -52,13 +87,18 @@
         <div class="row">
             <div class="col">
                 <div class="game-header">
-                    <h1>Mafia: Web of Lies</h1>
-                    <div class="game-info">
-                        <span>Game Code: <span id="gameCode" th:text="${gameCode}"></span></span>
-                        <input type="hidden" id="username" th:value="${username}">
-                        <span>Day: <span id="day">1</span></span>
-                        <span>Phase: <span id="phase">DAY</span></span>
-                    </div>
+                <h1>Mafia: Web of Lies</h1>
+                <div class="game-info">
+                    <span>Game Code: <span id="gameCode" th:text="${gameCode}"></span></span>
+                    <input type="hidden" id="username" th:value="${username}">
+                    <span>Day: <span id="day">1</span></span>
+                    <span>Phase: <span id="phase">DAY</span></span>
+                </div>
+                
+                <!-- Game Notifications -->
+                <div id="gameNotifications" class="mt-2" style="display: none;">
+                    <div class="alert alert-info" id="notificationText"></div>
+                </div>
                 </div>
             </div>
         </div>
@@ -67,12 +107,12 @@
             <!-- Player List -->
             <div class="col-md-4">
                 <div class="player-list">
-                    <h3>Players</h3>
+                <h3>Players</h3>
                     <div id="playersList">
-                        <!-- Players will be dynamically added here -->
+                    <!-- Players will be dynamically added here -->
                     </div>
                 </div>
-                
+
                 <div class="role-info">
                     <h4>Your Role</h4>
                     <div id="roleInfo">
@@ -99,23 +139,23 @@
                                 <div>
                                     <button id="voteBtn" class="btn btn-danger me-2">Vote</button>
                                     <button id="skipVoteBtn" class="btn btn-secondary">Skip Vote</button>
-                                </div>
-                            </div>
+                </div>
+                </div>
                             
                             <div id="votingStatus" class="mt-3">
                                 <h5>Voting Status:</h5>
                                 <div id="votesList"></div>
-                            </div>
-                        </div>
+                </div>
+            </div>
                         
                         <!-- Night Phase Actions -->
                         <div id="nightPhase" style="display: none;">
                             <h4>Night Phase</h4>
                             <div id="nightActions">
                                 <!-- Role-specific actions will be shown here -->
-                            </div>
-                        </div>
-                        
+        </div>
+    </div>
+
                         <!-- Game Over -->
                         <div id="gameOver" style="display: none;">
                             <h4>Game Over!</h4>
@@ -126,7 +166,12 @@
                         <div class="mt-3">
                             <button id="refreshBtn" class="btn btn-primary">Refresh Game State</button>
                         </div>
-                    </div>
+                        
+                        <!-- Phase Timer -->
+                        <div id="phaseTimer" class="mt-3 alert alert-warning" style="display: none;">
+                            <strong>Time Remaining: <span id="timerText">0:00</span></strong>
+                </div>
+                </div>
                 </div>
             </div>
         </div>
@@ -138,43 +183,101 @@
         const gameCode = /*[[${gameCode}]]*/ '';
         const username = /*[[${username}]]*/ '';
         let currentPlayerRole = '';
+        let phaseTimer = null;
+        let currentPhase = '';
+        let autoRefreshInterval = null;
+        let hasActedThisNight = false;
+        let isPlayerAlive = true; // Track if current player is alive
+        let isLoadingPlayers = false; // Flag to prevent concurrent player loading
+        
+        // Phase durations in seconds
+        const NIGHT_PHASE_DURATION = 60; // 60 seconds (1 minute) for night actions
+        const DAY_PHASE_DURATION = 90;   // 1.5 minutes for day votes
 
         function loadGameState() {
-            // Load players
-            fetch(`/api/games/${gameCode}/players`)
+            // Store current vote selection to preserve it during refresh
+            const voteSelect = document.getElementById('voteSelect');
+            const currentVoteSelection = voteSelect ? voteSelect.value : '';
+            
+            // Load player role first, then load other game state
+            fetch(`/api/games/${gameCode}/player/${username}/role`)
                 .then(response => response.json())
-                .then(players => {
-                    const playersList = document.getElementById('playersList');
-                    playersList.innerHTML = '';
+                .then(roleData => {
+                    currentPlayerRole = roleData.role;
+                    const roleInfo = document.getElementById('roleInfo');
                     
-                    // Update vote select options
-                    const voteSelect = document.getElementById('voteSelect');
-                    voteSelect.innerHTML = '<option value="">Select a player...</option>';
+                    if (roleData.role === 'MAFIA') {
+                        roleInfo.innerHTML = `
+                            <h5>${roleData.role}</h5>
+                            <p>${roleData.description}</p>
+                            <div id="roleTeamInfo" class="mt-3">
+                                <h6>Your Mafia Team:</h6>
+                                <div id="roleMafiaMembers">Loading team...</div>
+                            </div>
+                        `;
+                        // Load Mafia team info for role section
+                        loadMafiaTeamForRole();
+                    } else {
+                        roleInfo.innerHTML = `
+                            <h5>${roleData.role}</h5>
+                            <p>${roleData.description}</p>
+                        `;
+                    }
                     
-                    players.forEach(player => {
-                        const playerDiv = document.createElement('div');
-                        playerDiv.className = 'player-item';
-                        playerDiv.textContent = player.username;
-                        if (player.username === username) {
-                            playerDiv.textContent += ' (You)';
-                        }
-                        // TODO: Show if player is dead
-                        playersList.appendChild(playerDiv);
-                        
-                        // Add to vote options (exclude self)
-                        if (player.username !== username) {
-                            const option = document.createElement('option');
-                            option.value = player.username;
-                            option.textContent = player.username;
-                            voteSelect.appendChild(option);
-                        }
-                    });
+                    // Now load the rest of the game state after role is loaded
+                    loadPlayersAndGameInfo();
                 })
                 .catch(error => {
-                    console.error('Error loading players:', error);
+                    console.error('Error loading role:', error);
+                    document.getElementById('roleInfo').innerHTML = '<p>Error loading role information</p>';
+                    // Still load game state even if role loading fails
+                    loadPlayersAndGameInfo();
                 });
+        }
 
-            // Load game info
+        function loadMafiaTeamForRole() {
+            fetch(`/api/games/${gameCode}/mafia-team/${username}`)
+                .then(response => response.json())
+                .then(mafiaMembers => {
+                    const roleMafiaDiv = document.getElementById('roleMafiaMembers');
+                    if (roleMafiaDiv) {
+                        roleMafiaDiv.innerHTML = '';
+                        
+                        if (mafiaMembers.length === 0) {
+                            roleMafiaDiv.innerHTML = '<p class="text-muted small">No team information available</p>';
+                            return;
+                        }
+                        
+                        mafiaMembers.forEach(member => {
+                            const memberDiv = document.createElement('div');
+                            memberDiv.className = 'small mb-1';
+                            
+                            let memberText = member.username;
+                            if (member.isYou) {
+                                memberText += ' (You)';
+                            }
+                            if (!member.alive) {
+                                memberText += ' (Dead)';
+                                memberDiv.className += ' text-muted';
+                                memberDiv.style.textDecoration = 'line-through';
+                            }
+                            
+                            memberDiv.innerHTML = `<span class="text-danger">🔴 ${memberText}</span>`;
+                            roleMafiaDiv.appendChild(memberDiv);
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading Mafia team for role:', error);
+                    const roleMafiaDiv = document.getElementById('roleMafiaMembers');
+                    if (roleMafiaDiv) {
+                        roleMafiaDiv.innerHTML = '<p class="text-muted small">Unable to load team</p>';
+                    }
+                });
+        }
+
+        function loadPlayersAndGameInfo() {
+            // Load game info first to determine phase
             fetch(`/api/games/${gameCode}`)
                 .then(response => response.json())
                 .then(game => {
@@ -185,40 +288,167 @@
                     document.getElementById('phase').textContent = phaseText;
                     document.getElementById('phaseTitle').textContent = `${phaseText} PHASE - Day ${game.currentDay}`;
                     
-                    // Show appropriate phase content
-                    if (game.gameState === 'FINISHED') {
-                        showGameOver(game.winner);
-                    } else if (game.currentPhase === 0) {
-                        showDayPhase();
-                    } else {
-                        showNightPhase();
-                    }
+                    // Always load players first to update isPlayerAlive status
+                    loadPlayersList().then(() => {
+                        // Show appropriate phase content after player status is updated
+                        if (game.gameState === 'FINISHED') {
+                            showGameOver(game.winner);
+                            clearTimer();
+                            stopAutoRefresh();
+                        } else if (game.currentPhase === 0) {
+                            if (currentPhase !== 'DAY') {
+                                currentPhase = 'DAY';
+                                hasActedThisNight = false;
+                                showDayPhase();
+                                startPhaseTimer(DAY_PHASE_DURATION);
+                                setAutoRefreshInterval(5000); // Normal refresh during day
+                            }
+                            if (isPlayerAlive) {
+                                loadVotingStatus();
+                            }
+                        } else {
+                            if (currentPhase !== 'NIGHT') {
+                                currentPhase = 'NIGHT';
+                                hasActedThisNight = false;
+                                showNightPhase();
+                                startPhaseTimer(NIGHT_PHASE_DURATION);
+                                setAutoRefreshInterval(10000); // Slower refresh during night
+                            }
+                        }
+                    });
                 })
                 .catch(error => {
                     console.error('Error loading game state:', error);
                 });
+        }
 
-            // Load player role
-            fetch(`/api/games/${gameCode}/player/${username}/role`)
-                .then(response => response.json())
-                .then(roleData => {
-                    currentPlayerRole = roleData.role;
-                    const roleInfo = document.getElementById('roleInfo');
-                    roleInfo.innerHTML = `
-                        <h5>${roleData.role}</h5>
-                        <p>${roleData.description}</p>
-                    `;
-                })
-                .catch(error => {
-                    console.error('Error loading role:', error);
-                    document.getElementById('roleInfo').innerHTML = '<p>Error loading role information</p>';
-                });
+        function loadPlayersList() {
+            return new Promise((resolve, reject) => {
+                // Prevent concurrent loading
+                if (isLoadingPlayers) {
+                    resolve();
+                    return;
+                }
+                
+                isLoadingPlayers = true;
+                
+                // Load players
+                fetch(`/api/games/${gameCode}/players`)
+                    .then(response => response.json())
+                    .then(players => {
+                        // Update isPlayerAlive status first
+                        const currentPlayer = players.find(p => p.username === username);
+                        if (currentPlayer) {
+                            isPlayerAlive = currentPlayer.alive;
+                        }
+                        
+                        // Update vote select options only if player is alive and it's day phase
+                        const voteSelect = document.getElementById('voteSelect');
+                        if (voteSelect) {
+                            const currentVoteSelection = voteSelect.value;
+                            voteSelect.innerHTML = '<option value="">Select a player...</option>';
+                            
+                            players.forEach(player => {
+                                // Add to vote options (exclude self and dead players) only if current player is alive
+                                if (player.username !== username && player.alive && isPlayerAlive) {
+                                    const option = document.createElement('option');
+                                    option.value = player.username;
+                                    option.textContent = player.username;
+                                    voteSelect.appendChild(option);
+                                }
+                            });
+                            
+                            // Restore previous selection if it's still valid
+                            if (currentVoteSelection && Array.from(voteSelect.options).some(opt => opt.value === currentVoteSelection)) {
+                                voteSelect.value = currentVoteSelection;
+                            }
+                        }
+                        
+                        // Load dead players with roles to display them
+                        fetch(`/api/games/${gameCode}/dead-players-roles`)
+                            .then(response => response.json())
+                            .then(deadPlayersWithRoles => {
+                                const deadPlayerRoles = {};
+                                deadPlayersWithRoles.forEach(player => {
+                                    deadPlayerRoles[player.username] = player.role;
+                                });
+                                
+                                // Display all players with proper formatting
+                                displayPlayersInList(players, deadPlayerRoles);
+                                isLoadingPlayers = false; // Reset loading flag
+                                resolve(); // Resolve the promise after everything is loaded
+                            })
+                            .catch(error => {
+                                console.error('Error loading dead player roles:', error);
+                                // Fallback to basic display without roles
+                                displayPlayersInList(players, {});
+                                isLoadingPlayers = false; // Reset loading flag
+                                resolve(); // Resolve even on error
+                            });
+                    })
+                    .catch(error => {
+                        console.error('Error loading players:', error);
+                        isLoadingPlayers = false; // Reset loading flag
+                        reject(error);
+                    });
+            });
+        }
+
+        function displayPlayersInList(players, deadPlayerRoles) {
+            const playersList = document.getElementById('playersList');
+            
+            // Clear the existing players list completely to prevent duplication
+            playersList.innerHTML = '';
+            
+            players.forEach(player => {
+                const playerDiv = document.createElement('div');
+                playerDiv.className = 'player-item';
+                if (!player.alive) {
+                    playerDiv.classList.add('player-dead');
+                }
+                
+                let playerText = player.username;
+                if (player.username === username) {
+                    playerText += ' (You)';
+                }
+                if (!player.alive) {
+                    const role = deadPlayerRoles[player.username];
+                    if (role) {
+                        const roleColor = role === 'MAFIA' ? 'text-danger' : 
+                                        role === 'DOCTOR' ? 'text-success' : 
+                                        role === 'DETECTIVE' ? 'text-info' : 'text-secondary';
+                        playerDiv.innerHTML = `<span>${player.username}${player.username === username ? ' (You)' : ''}</span> <span class="${roleColor}">(Dead - ${role})</span>`;
+                    } else {
+                        playerDiv.textContent = playerText + ' (Dead)';
+                    }
+                } else {
+                    playerDiv.textContent = playerText;
+                }
+                
+                playersList.appendChild(playerDiv);
+            });
         }
 
         function showDayPhase() {
             document.getElementById('dayPhase').style.display = 'block';
             document.getElementById('nightPhase').style.display = 'none';
             document.getElementById('gameOver').style.display = 'none';
+            
+            // Show spectator interface for dead players
+            if (!isPlayerAlive) {
+                document.getElementById('dayPhase').innerHTML = `
+                    <div class="alert alert-secondary">
+                        <h4>Day Phase - Spectator Mode</h4>
+                        <p><strong>You are dead and watching the game.</strong></p>
+                        <p>The living players are discussing and voting to eliminate someone they suspect is Mafia.</p>
+                        <p>You cannot participate but can observe the proceedings.</p>
+                    </div>
+                    <div id="votingStatus" class="mt-3">
+                        <h5>Voting Status:</h5>
+                        <div id="votesList"></div>
+                    </div>
+                `;
+            }
         }
 
         function showNightPhase() {
@@ -226,17 +456,358 @@
             document.getElementById('nightPhase').style.display = 'block';
             document.getElementById('gameOver').style.display = 'none';
             
-            // Show role-specific night actions
+            // Show role-specific night actions only for alive players
             const nightActions = document.getElementById('nightActions');
-            if (currentPlayerRole === 'MAFIA') {
-                nightActions.innerHTML = '<p>Choose a player to eliminate tonight.</p><p>Coordinate with other Mafia members.</p>';
-            } else if (currentPlayerRole === 'DOCTOR') {
-                nightActions.innerHTML = '<p>Choose a player to save tonight (including yourself).</p>';
-            } else if (currentPlayerRole === 'DETECTIVE') {
-                nightActions.innerHTML = '<p>Choose a player to investigate tonight.</p>';
-            } else {
-                nightActions.innerHTML = '<p>Sleep tight! Wait for the day phase to begin.</p>';
+            if (!isPlayerAlive) {
+                nightActions.innerHTML = `
+                    <div class="alert alert-secondary">
+                        <h4>Night Phase - Spectator Mode</h4>
+                        <p><strong>You are dead and watching the game.</strong></p>
+                        <p>The living players with special roles are performing their night actions.</p>
+                        <p>Wait for the day phase to see the results of tonight's actions.</p>
+                    </div>
+                `;
+                return;
             }
+            
+            if (currentPlayerRole === 'MAFIA') {
+                nightActions.innerHTML = `
+                    <div class="alert alert-danger">
+                        <h5>Mafia Night Action</h5>
+                        <p>Vote for a player to eliminate tonight. Your team needs to coordinate the decision.</p>
+                        <div id="mafiaTeamInfo" class="mb-3">
+                            <h6>Your Mafia Team:</h6>
+                            <div id="mafiaMembers">Loading...</div>
+                        </div>
+                        <div class="mt-3">
+                            <label for="mafiaTarget">Your vote to eliminate:</label>
+                            <select id="mafiaTarget" class="form-select mb-2">
+                                <option value="">Select a player...</option>
+                            </select>
+                            <button id="mafiaActionBtn" class="btn btn-danger">Submit Vote</button>
+                            <small class="form-text text-muted d-block mt-1">You can change your vote until all team members have voted.</small>
+                        </div>
+                    </div>
+                `;
+                // Load Mafia team members and populate target options
+                loadMafiaTeamInfo();
+                loadMafiaTargets();
+                document.getElementById('mafiaActionBtn').addEventListener('click', function() {
+                    const target = document.getElementById('mafiaTarget').value;
+                    if (!target) {
+                        alert('Please select a target to eliminate.');
+                        return;
+                    }
+                    submitNightAction('KILL', target);
+                });
+                
+                // Refresh Mafia voting status every 3 seconds during night phase
+                const mafiaRefreshInterval = setInterval(() => {
+                    if (currentPhase === 'NIGHT' && currentPlayerRole === 'MAFIA') {
+                        loadMafiaTeamInfo();
+                    } else {
+                        clearInterval(mafiaRefreshInterval);
+                    }
+                }, 3000);
+            } else if (currentPlayerRole === 'DOCTOR') {
+                nightActions.innerHTML = `
+                    <div class="alert alert-success">
+                        <h5>Doctor Night Action</h5>
+                        <p>Choose a player to save tonight (including yourself). You can prevent one death.</p>
+                        <div class="mt-3">
+                            <label for="doctorTarget">Player to save:</label>
+                            <select id="doctorTarget" class="form-select mb-2">
+                                <option value="">Select a player...</option>
+                            </select>
+                            <button id="doctorActionBtn" class="btn btn-success">Save Player</button>
+                        </div>
+                    </div>
+                `;
+                // Populate doctor target options and add event listener
+                loadDoctorTargets();
+                document.getElementById('doctorActionBtn').addEventListener('click', function() {
+                    const target = document.getElementById('doctorTarget').value;
+                    if (!target) {
+                        alert('Please select a player to save.');
+                        return;
+                    }
+                    submitNightAction('SAVE', target);
+                });
+            } else if (currentPlayerRole === 'DETECTIVE') {
+                nightActions.innerHTML = `
+                    <div class="alert alert-info">
+                        <h5>Detective Night Action</h5>
+                        <p>Choose a player to investigate tonight. You will learn if they are Mafia or not.</p>
+                        <div id="investigationResult" class="mt-3" style="display: none;">
+                            <div class="alert alert-success">
+                                <h6>Investigation Result:</h6>
+                                <div id="investigationMessage"></div>
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <label for="detectiveTarget">Player to investigate:</label>
+                            <select id="detectiveTarget" class="form-select mb-2">
+                                <option value="">Select a player...</option>
+                            </select>
+                            <button id="detectiveActionBtn" class="btn btn-info">Investigate Player</button>
+                        </div>
+                    </div>
+                `;
+                // Populate detective target options and add event listener
+                loadDetectiveTargets();
+                document.getElementById('detectiveActionBtn').addEventListener('click', function() {
+                    const target = document.getElementById('detectiveTarget').value;
+                    if (!target) {
+                        alert('Please select a player to investigate.');
+                        return;
+                    }
+                    submitNightAction('INVESTIGATE', target);
+                });
+            } else {
+                nightActions.innerHTML = `
+                    <div class="alert alert-secondary">
+                        <h5>Night Time</h5>
+                        <p>Sleep tight! The night actions are being performed by special roles.</p>
+                        <p>Wait for the day phase to begin where you can participate in discussions and voting.</p>
+                    </div>
+                `;
+            }
+        }
+
+        function loadMafiaTargets() {
+            fetch(`/api/games/${gameCode}/players`)
+                .then(response => response.json())
+                .then(players => {
+                    const targetSelect = document.getElementById('mafiaTarget');
+                    if (targetSelect) {
+                        targetSelect.innerHTML = '<option value="">Select a player...</option>';
+                        players.forEach(player => {
+                            if (player.username !== username && player.alive) {
+                                const option = document.createElement('option');
+                                option.value = player.username;
+                                option.textContent = player.username;
+                                targetSelect.appendChild(option);
+                            }
+                        });
+                    }
+                });
+        }
+
+        function loadMafiaTeamInfo() {
+            fetch(`/api/games/${gameCode}/mafia-team/${username}`)
+                .then(response => response.json())
+                .then(mafiaMembers => {
+                    const mafiaTeamDiv = document.getElementById('mafiaMembers');
+                    if (mafiaTeamDiv) {
+                        mafiaTeamDiv.innerHTML = '';
+                        
+                        if (mafiaMembers.length === 0) {
+                            mafiaTeamDiv.innerHTML = '<p class="text-muted">No team information available</p>';
+                            return;
+                        }
+                        
+                        // Load voting status to combine with member info
+                        fetch(`/api/games/${gameCode}/mafia-votes/${username}`)
+                            .then(response => response.json())
+                            .then(votingStatus => {
+                                mafiaMembers.forEach(member => {
+                                    const memberDiv = document.createElement('div');
+                                    memberDiv.className = 'mb-1';
+                                    
+                                    let memberText = member.username;
+                                    if (member.isYou) {
+                                        memberText += ' (You)';
+                                    }
+                                    if (!member.alive) {
+                                        memberText += ' (Dead)';
+                                        memberDiv.className += ' text-muted';
+                                        memberDiv.style.textDecoration = 'line-through';
+                                    }
+                                    
+                                    // Find voting status for this member
+                                    const memberStatus = votingStatus.find(v => v.username === member.username);
+                                    let statusText = '';
+                                    let statusClass = '';
+                                    
+                                    if (memberStatus) {
+                                        if (memberStatus.hasVoted) {
+                                            statusText = ` - Voted for ${memberStatus.target}`;
+                                            statusClass = 'text-success';
+                                        } else {
+                                            statusText = ' - Not voted yet';
+                                            statusClass = 'text-warning';
+                                        }
+                                    }
+                                    
+                                    memberDiv.innerHTML = `<span class="text-danger">🔴 ${memberText}</span><span class="${statusClass}">${statusText}</span>`;
+                                    mafiaTeamDiv.appendChild(memberDiv);
+                                });
+                                
+                                // Add summary if needed
+                                const votedCount = votingStatus.filter(m => m.hasVoted).length;
+                                const totalCount = votingStatus.length;
+                                
+                                if (votedCount < totalCount) {
+                                    const summaryDiv = document.createElement('div');
+                                    summaryDiv.className = 'mt-2 small text-info';
+                                    summaryDiv.innerHTML = `<em>Waiting for ${totalCount - votedCount} more vote(s)...</em>`;
+                                    mafiaTeamDiv.appendChild(summaryDiv);
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Error loading voting status:', error);
+                                // Fallback to basic member display without voting status
+                                mafiaMembers.forEach(member => {
+                                    const memberDiv = document.createElement('div');
+                                    memberDiv.className = 'mb-1';
+                                    
+                                    let memberText = member.username;
+                                    if (member.isYou) {
+                                        memberText += ' (You)';
+                                    }
+                                    if (!member.alive) {
+                                        memberText += ' (Dead)';
+                                        memberDiv.className += ' text-muted';
+                                        memberDiv.style.textDecoration = 'line-through';
+                                    }
+                                    
+                                    memberDiv.innerHTML = `<span class="text-danger">🔴 ${memberText}</span>`;
+                                    mafiaTeamDiv.appendChild(memberDiv);
+                                });
+                            });
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading Mafia team:', error);
+                    const mafiaTeamDiv = document.getElementById('mafiaMembers');
+                    if (mafiaTeamDiv) {
+                        mafiaTeamDiv.innerHTML = '<p class="text-muted">Unable to load team information</p>';
+                    }
+                });
+        }
+
+        function loadDoctorTargets() {
+            fetch(`/api/games/${gameCode}/players`)
+                .then(response => response.json())
+                .then(players => {
+                    const targetSelect = document.getElementById('doctorTarget');
+                    if (targetSelect) {
+                        targetSelect.innerHTML = '<option value="">Select a player...</option>';
+                        players.forEach(player => {
+                            if (player.alive) {
+                                const option = document.createElement('option');
+                                option.value = player.username;
+                                option.textContent = player.username;
+                                targetSelect.appendChild(option);
+                            }
+                        });
+                    }
+                });
+        }
+
+        function loadDetectiveTargets() {
+            fetch(`/api/games/${gameCode}/players`)
+                .then(response => response.json())
+                .then(players => {
+                    const targetSelect = document.getElementById('detectiveTarget');
+                    if (targetSelect) {
+                        targetSelect.innerHTML = '<option value="">Select a player...</option>';
+                        players.forEach(player => {
+                            if (player.username !== username && player.alive) {
+                                const option = document.createElement('option');
+                                option.value = player.username;
+                                option.textContent = player.username;
+                                targetSelect.appendChild(option);
+                            }
+                        });
+                    }
+                });
+        }
+
+        function submitNightAction(actionType, targetUsername) {
+            const nightActionData = {
+                actorUsername: username,
+                targetUsername: targetUsername,
+                actionType: actionType
+            };
+            
+            fetch(`/api/game-logic/${gameCode}/night-action`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(nightActionData)
+            })
+            .then(response => {
+                if (response.ok) {
+                    if (currentPlayerRole === 'MAFIA') {
+                        // Don't show notification - vote status will update automatically
+                        // Don't disable interface for Mafia - they can change votes
+                        loadMafiaTeamInfo(); // Refresh voting status
+                    } else if (currentPlayerRole === 'DETECTIVE' && actionType === 'INVESTIGATE') {
+                        hasActedThisNight = true;
+                        
+                        // Show investigation result immediately (simulated for now)
+                        // In a real implementation, this would come via WebSocket
+                        setTimeout(() => {
+                            displayInvestigationResult(targetUsername);
+                        }, 1000);
+                        
+                        // Disable the action interface
+                        disableNightActionInterface();
+                        
+                        // Reduce refresh frequency after acting
+                        setAutoRefreshInterval(15000);
+                    } else {
+                        hasActedThisNight = true;
+                        
+                        // Disable the action interface for non-Mafia roles
+                        disableNightActionInterface();
+                        
+                        // Reduce refresh frequency after acting
+                        setAutoRefreshInterval(15000);
+                    }
+                } else {
+                    return response.json().then(error => {
+                        throw new Error(error.message || 'Failed to perform night action');
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error performing night action:', error);
+                showNotification('Error: ' + error.message, 'error');
+            });
+        }
+
+        function disableNightActionInterface() {
+            // Disable all night action buttons and selects
+            const buttons = document.querySelectorAll('#nightActions button');
+            const selects = document.querySelectorAll('#nightActions select');
+            
+            buttons.forEach(btn => {
+                btn.disabled = true;
+                btn.textContent = 'Action Completed';
+                btn.className = 'btn btn-secondary';
+            });
+            
+            selects.forEach(select => {
+                select.disabled = true;
+            });
+        }
+
+        function showNotification(message, type = 'info') {
+            const notifications = document.getElementById('gameNotifications');
+            const notificationText = document.getElementById('notificationText');
+            
+            // Set alert class based on type
+            notificationText.className = `alert alert-${type === 'error' ? 'danger' : type === 'success' ? 'success' : 'info'}`;
+            notificationText.textContent = message;
+            notifications.style.display = 'block';
+            
+            // Auto-hide after 5 seconds
+            setTimeout(() => {
+                notifications.style.display = 'none';
+            }, 5000);
         }
 
         function showGameOver(winner) {
@@ -245,30 +816,188 @@
             document.getElementById('gameOver').style.display = 'block';
             
             const winnerMessage = document.getElementById('winnerMessage');
+            let winnerHtml = '';
             if (winner === 'MAFIA') {
-                winnerMessage.innerHTML = '<h5 class="text-danger">Mafia Wins!</h5><p>The Mafia has successfully taken over the town.</p>';
+                winnerHtml = '<h5 class="text-danger">Mafia Wins!</h5><p>The Mafia has successfully taken over the town.</p>';
+            } else if (winner === 'CITIZENS') {
+                winnerHtml = '<h5 class="text-success">Citizens Win!</h5><p>All Mafia members have been eliminated!</p>';
             } else {
-                winnerMessage.innerHTML = '<h5 class="text-success">Citizens Win!</h5><p>All Mafia members have been eliminated!</p>';
+                winnerHtml = '<h5 class="text-info">Game Over!</h5><p>The game has ended.</p>';
             }
+            
+            // Load and display all players with their roles
+            fetch(`/api/games/${gameCode}/players-with-roles`)
+                .then(response => response.json())
+                .then(players => {
+                    let rolesHtml = '<div class="mt-4"><h6>Player Roles:</h6><div class="row">';
+                    players.forEach(player => {
+                        const roleColor = player.role === 'MAFIA' ? 'text-danger' : 
+                                        player.role === 'DOCTOR' ? 'text-success' : 
+                                        player.role === 'DETECTIVE' ? 'text-info' : 'text-secondary';
+                        const aliveStatus = player.alive ? '' : ' (Dead)';
+                        rolesHtml += `
+                            <div class="col-md-6 mb-2">
+                                <div class="card">
+                                    <div class="card-body p-2">
+                                        <strong>${player.username}${aliveStatus}</strong><br>
+                                        <span class="${roleColor}">${player.role}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    rolesHtml += '</div></div>';
+                    winnerMessage.innerHTML = winnerHtml + rolesHtml;
+                })
+                .catch(error => {
+                    console.error('Error loading player roles:', error);
+                    winnerMessage.innerHTML = winnerHtml + '<p class="mt-3 text-muted">Could not load player roles.</p>';
+                });
         }
 
         // Vote button handler
         document.getElementById('voteBtn').addEventListener('click', function() {
+            if (!isPlayerAlive) {
+                showNotification('Dead players cannot vote! You are in spectator mode.', 'error');
+                return;
+            }
+            
             const selectedPlayer = document.getElementById('voteSelect').value;
             if (!selectedPlayer) {
                 alert('Please select a player to vote for.');
                 return;
             }
             
-            // TODO: Implement voting API call
-            alert(`Voting for ${selectedPlayer} - This will be implemented next!`);
+            // Check if player has already voted
+            fetch(`/api/game-logic/${gameCode}/has-voted/${username}`)
+                .then(response => response.json())
+                .then(hasVoted => {
+                    if (hasVoted) {
+                        alert('You have already voted!');
+                        return;
+                    }
+                    
+                    // Submit vote
+                    const voteData = {
+                        voterUsername: username,
+                        targetUsername: selectedPlayer,
+                        skip: false
+                    };
+                    
+                    fetch(`/api/game-logic/${gameCode}/vote`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(voteData)
+                    })
+                    .then(response => {
+                        if (response.ok) {
+                            alert(`Successfully voted for ${selectedPlayer}`);
+                            document.getElementById('voteSelect').value = '';
+                            loadVotingStatus();
+                            loadGameState();
+                        } else {
+                            return response.json().then(error => {
+                                throw new Error(error.message || 'Failed to vote');
+                            });
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error voting:', error);
+                        alert('Error: ' + error.message);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error checking vote status:', error);
+                    alert('Error checking vote status');
+                });
         });
 
         // Skip vote button handler
         document.getElementById('skipVoteBtn').addEventListener('click', function() {
-            // TODO: Implement skip vote API call
-            alert('Skip vote - This will be implemented next!');
+            if (!isPlayerAlive) {
+                showNotification('Dead players cannot vote! You are in spectator mode.', 'error');
+                return;
+            }
+            
+            // Check if player has already voted
+            fetch(`/api/game-logic/${gameCode}/has-voted/${username}`)
+                .then(response => response.json())
+                .then(hasVoted => {
+                    if (hasVoted) {
+                        alert('You have already voted!');
+                        return;
+                    }
+                    
+                    // Submit skip vote
+                    const voteData = {
+                        voterUsername: username,
+                        targetUsername: null,
+                        skip: true
+                    };
+                    
+                    fetch(`/api/game-logic/${gameCode}/vote`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(voteData)
+                    })
+                    .then(response => {
+                        if (response.ok) {
+                            alert('Successfully skipped vote');
+                            loadVotingStatus();
+                            loadGameState();
+                        } else {
+                            return response.json().then(error => {
+                                throw new Error(error.message || 'Failed to skip vote');
+                            });
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error skipping vote:', error);
+                        alert('Error: ' + error.message);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error checking vote status:', error);
+                    alert('Error checking vote status');
+                });
         });
+
+        // Function to load voting status
+        function loadVotingStatus() {
+            fetch(`/api/game-logic/${gameCode}/vote-status`)
+                .then(response => response.json())
+                .then(votingStatus => {
+                    const votesList = document.getElementById('votesList');
+                    if (!votesList) return; // Element might not exist for dead players
+                    
+                    votesList.innerHTML = '';
+                    
+                    Object.entries(votingStatus).forEach(([playerName, status]) => {
+                        const statusDiv = document.createElement('div');
+                        statusDiv.className = 'vote-status-item';
+                        
+                        let statusClass = 'not-voted';
+                        let statusText = status;
+                        
+                        if (status.startsWith('Voted')) {
+                            statusClass = 'voted';
+                        }
+                        
+                        statusDiv.innerHTML = `
+                            <span class="player-name">${playerName}:</span>
+                            <span class="vote-status ${statusClass}">${statusText}</span>
+                        `;
+                        votesList.appendChild(statusDiv);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error loading voting status:', error);
+                });
+        }
 
         // Refresh button handler
         document.getElementById('refreshBtn').addEventListener('click', loadGameState);
@@ -276,8 +1005,127 @@
         // Initial load
         loadGameState();
 
+        // Start with initial auto-refresh
+        setAutoRefreshInterval(5000);
+
         // Auto-refresh every 5 seconds
         setInterval(loadGameState, 5000);
+
+        // Also add investigation result display area
+        function displayInvestigationResult(targetUsername) {
+            // Fetch the actual investigation result from the backend
+            fetch(`/api/games/${gameCode}/investigation-result/${username}/${targetUsername}`)
+                .then(response => {
+                    if (response.ok) {
+                        return response.json();
+                    } else {
+                        throw new Error('Investigation result not available yet');
+                    }
+                })
+                .then(result => {
+                    // Show the investigation result area
+                    const resultDiv = document.getElementById('investigationResult');
+                    const messageDiv = document.getElementById('investigationMessage');
+                    
+                    if (resultDiv && messageDiv) {
+                        let resultClass = result.isMafia ? 'text-danger' : 'text-success';
+                        let resultIcon = result.isMafia ? '🔴' : '🟢';
+                        
+                        messageDiv.innerHTML = `
+                            <p><strong>Investigation Complete!</strong></p>
+                            <p>You investigated <strong>${result.targetUsername}</strong>:</p>
+                            <p class="${resultClass}"><strong>${resultIcon} ${result.message}</strong></p>
+                        `;
+                        resultDiv.style.display = 'block';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error getting investigation result:', error);
+                    // Show a pending message if result not available yet
+                    const resultDiv = document.getElementById('investigationResult');
+                    const messageDiv = document.getElementById('investigationMessage');
+                    
+                    if (resultDiv && messageDiv) {
+                        messageDiv.innerHTML = `
+                            <p><strong>Investigation in Progress...</strong></p>
+                            <p>You investigated <strong>${targetUsername}</strong>.</p>
+                            <p class="text-warning">Results will be available shortly. Try refreshing in a moment.</p>
+                        `;
+                        resultDiv.style.display = 'block';
+                        
+                        // Try again after a short delay
+                        setTimeout(() => {
+                            displayInvestigationResult(targetUsername);
+                        }, 2000);
+                    }
+                });
+        }
+
+        function startPhaseTimer(duration) {
+            clearTimer();
+            
+            const timerElement = document.getElementById('phaseTimer');
+            const timerText = document.getElementById('timerText');
+            
+            timerElement.style.display = 'block';
+            let timeLeft = duration;
+            
+            function updateTimer() {
+                const minutes = Math.floor(timeLeft / 60);
+                const seconds = timeLeft % 60;
+                timerText.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                
+                if (timeLeft <= 0) {
+                    // Auto advance phase when timer expires
+                    advancePhaseAutomatically();
+                    clearTimer();
+                } else {
+                    timeLeft--;
+                }
+            }
+            
+            updateTimer(); // Update immediately
+            phaseTimer = setInterval(updateTimer, 1000);
+        }
+
+        function clearTimer() {
+            if (phaseTimer) {
+                clearInterval(phaseTimer);
+                phaseTimer = null;
+            }
+            document.getElementById('phaseTimer').style.display = 'none';
+        }
+
+        function advancePhaseAutomatically() {
+            fetch(`/api/game-logic/${gameCode}/advance-phase`, {
+                method: 'POST'
+            })
+            .then(response => {
+                if (response.ok) {
+                    showNotification('Phase advanced automatically due to timer', 'info');
+                    loadGameState();
+                } else {
+                    console.error('Failed to advance phase automatically');
+                }
+            })
+            .catch(error => {
+                console.error('Error advancing phase automatically:', error);
+            });
+        }
+
+        function setAutoRefreshInterval(interval) {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+            }
+            autoRefreshInterval = setInterval(loadGameState, interval);
+        }
+
+        function stopAutoRefresh() {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+                autoRefreshInterval = null;
+            }
+        }
     </script>
 </body>
 </html>

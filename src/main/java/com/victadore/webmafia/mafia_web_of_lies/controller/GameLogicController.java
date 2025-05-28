@@ -33,6 +33,16 @@ public class GameLogicController {
         return ResponseEntity.ok(game);
     }
 
+    @PostMapping("/{gameCode}/advance-phase")
+    public ResponseEntity<Game> advancePhase(@PathVariable String gameCode) {
+        try {
+            Game game = gameLogicService.advancePhase(gameCode);
+            return ResponseEntity.ok(game);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
     @PostMapping("/{gameCode}/night-action")
     public ResponseEntity<Game> handleNightAction(
             @PathVariable String gameCode,

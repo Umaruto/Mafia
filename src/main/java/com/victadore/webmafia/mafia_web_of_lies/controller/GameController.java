@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -97,16 +98,17 @@ public class GameController {
 
     @GetMapping("/{gameCode}/players")
     @ResponseBody
-    public ResponseEntity<List<Map<String, String>>> getPlayers(@PathVariable String gameCode) {
+    public ResponseEntity<List<Map<String, Object>>> getPlayers(@PathVariable String gameCode) {
         Game game = gameService.getGameByCode(gameCode);
         if (game == null) {
             throw new GameException("Game not found");
         }
         
-        List<Map<String, String>> players = game.getPlayers().stream()
+        List<Map<String, Object>> players = game.getPlayers().stream()
             .map(player -> {
-                Map<String, String> playerInfo = new HashMap<>();
+                Map<String, Object> playerInfo = new HashMap<>();
                 playerInfo.put("username", player.getUsername());
+                playerInfo.put("alive", player.isAlive());
                 return playerInfo;
             })
             .collect(Collectors.toList());
@@ -188,8 +190,208 @@ public class GameController {
             gameInfo.put("playerCount", game.getPlayers().size());
             gameInfo.put("minPlayers", game.getMinPlayers());
             gameInfo.put("maxPlayers", game.getMaxPlayers());
+            gameInfo.put("winner", game.getWinner());
             
             return ResponseEntity.ok(gameInfo);
+        } catch (GameException e) {
+            Map<String, Object> error = new HashMap<>();
+            error.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(error);
+        }
+    }
+
+    @GetMapping("/{gameCode}/players-with-roles")
+    @ResponseBody
+    public ResponseEntity<List<Map<String, Object>>> getPlayersWithRoles(@PathVariable String gameCode) {
+        try {
+            Game game = gameService.getGameByCode(gameCode);
+            
+            // Only show roles if game is finished
+            if (game.getGameState() != GameState.FINISHED) {
+                throw new GameException("Game must be finished to view all roles");
+            }
+            
+            List<Map<String, Object>> players = game.getPlayers().stream()
+                .map(player -> {
+                    Map<String, Object> playerInfo = new HashMap<>();
+                    playerInfo.put("username", player.getUsername());
+                    playerInfo.put("role", player.getRole().toString());
+                    playerInfo.put("alive", player.isAlive());
+                    return playerInfo;
+                })
+                .collect(Collectors.toList());
+                
+            return ResponseEntity.ok(players);
+        } catch (GameException e) {
+            List<Map<String, Object>> error = new ArrayList<>();
+            Map<String, Object> errorMap = new HashMap<>();
+            errorMap.put("message", e.getMessage());
+            error.add(errorMap);
+            return ResponseEntity.badRequest().body(error);
+        }
+    }
+
+    @GetMapping("/{gameCode}/dead-players-roles")
+    @ResponseBody
+    public ResponseEntity<List<Map<String, Object>>> getDeadPlayersWithRoles(@PathVariable String gameCode) {
+        try {
+            Game game = gameService.getGameByCode(gameCode);
+            
+            List<Map<String, Object>> deadPlayers = game.getPlayers().stream()
+                .filter(player -> !player.isAlive())
+                .map(player -> {
+                    Map<String, Object> playerInfo = new HashMap<>();
+                    playerInfo.put("username", player.getUsername());
+                    playerInfo.put("role", player.getRole().toString());
+                    playerInfo.put("alive", player.isAlive());
+                    return playerInfo;
+                })
+                .collect(Collectors.toList());
+                
+            return ResponseEntity.ok(deadPlayers);
+        } catch (GameException e) {
+            List<Map<String, Object>> error = new ArrayList<>();
+            Map<String, Object> errorMap = new HashMap<>();
+            errorMap.put("message", e.getMessage());
+            error.add(errorMap);
+            return ResponseEntity.badRequest().body(error);
+        }
+    }
+
+    @GetMapping("/{gameCode}/mafia-team/{username}")
+    @ResponseBody
+    public ResponseEntity<List<Map<String, Object>>> getMafiaTeam(@PathVariable String gameCode, @PathVariable String username) {
+        try {
+            Game game = gameService.getGameByCode(gameCode);
+            
+            // First verify that the requesting player is Mafia
+            Player requestingPlayer = game.getPlayers().stream()
+                .filter(p -> p.getUsername().equals(username))
+                .findFirst()
+                .orElseThrow(() -> new GameException("Player not found in game"));
+            
+            if (requestingPlayer.getRole() != Role.MAFIA) {
+                throw new GameException("Only Mafia members can view the Mafia team");
+            }
+            
+            // Get all Mafia members
+            List<Map<String, Object>> mafiaMembers = game.getPlayers().stream()
+                .filter(player -> player.getRole() == Role.MAFIA)
+                .map(player -> {
+                    Map<String, Object> memberInfo = new HashMap<>();
+                    memberInfo.put("username", player.getUsername());
+                    memberInfo.put("alive", player.isAlive());
+                    memberInfo.put("isYou", player.getUsername().equals(username));
+                    return memberInfo;
+                })
+                .collect(Collectors.toList());
+                
+            return ResponseEntity.ok(mafiaMembers);
+        } catch (GameException e) {
+            List<Map<String, Object>> error = new ArrayList<>();
+            Map<String, Object> errorMap = new HashMap<>();
+            errorMap.put("message", e.getMessage());
+            error.add(errorMap);
+            return ResponseEntity.badRequest().body(error);
+        }
+    }
+
+    @GetMapping("/{gameCode}/mafia-votes/{username}")
+    @ResponseBody
+    public ResponseEntity<List<Map<String, Object>>> getMafiaVotingStatus(@PathVariable String gameCode, @PathVariable String username) {
+        try {
+            Game game = gameService.getGameByCode(gameCode);
+            
+            // First verify that the requesting player is Mafia
+            Player requestingPlayer = game.getPlayers().stream()
+                .filter(p -> p.getUsername().equals(username))
+                .findFirst()
+                .orElseThrow(() -> new GameException("Player not found in game"));
+            
+            if (requestingPlayer.getRole() != Role.MAFIA) {
+                throw new GameException("Only Mafia members can view Mafia voting status");
+            }
+            
+            // Get current Mafia votes
+            List<Map<String, Object>> votingStatus = new ArrayList<>();
+            
+            // For each living Mafia member, show their voting status
+            game.getPlayers().stream()
+                .filter(player -> player.getRole() == Role.MAFIA && player.isAlive())
+                .forEach(mafiaPlayer -> {
+                    Map<String, Object> memberStatus = new HashMap<>();
+                    memberStatus.put("username", mafiaPlayer.getUsername());
+                    memberStatus.put("isYou", mafiaPlayer.getUsername().equals(username));
+                    
+                    Long targetId = game.getMafiaVotes().get(mafiaPlayer.getId());
+                    if (targetId != null) {
+                        String targetName = game.getPlayers().stream()
+                            .filter(p -> p.getId().equals(targetId))
+                            .map(Player::getUsername)
+                            .findFirst()
+                            .orElse("Unknown");
+                        memberStatus.put("hasVoted", true);
+                        memberStatus.put("target", targetName);
+                        memberStatus.put("status", "Voted for " + targetName);
+                    } else {
+                        memberStatus.put("hasVoted", false);
+                        memberStatus.put("target", null);
+                        memberStatus.put("status", "Not voted yet");
+                    }
+                    
+                    votingStatus.add(memberStatus);
+                });
+                
+            return ResponseEntity.ok(votingStatus);
+        } catch (GameException e) {
+            List<Map<String, Object>> error = new ArrayList<>();
+            Map<String, Object> errorMap = new HashMap<>();
+            errorMap.put("message", e.getMessage());
+            error.add(errorMap);
+            return ResponseEntity.badRequest().body(error);
+        }
+    }
+
+    @GetMapping("/{gameCode}/investigation-result/{detectiveUsername}/{targetUsername}")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> getInvestigationResult(@PathVariable String gameCode, 
+                                                                     @PathVariable String detectiveUsername, 
+                                                                     @PathVariable String targetUsername) {
+        try {
+            Game game = gameService.getGameByCode(gameCode);
+            
+            // Verify the requesting player is a detective
+            Player detective = game.getPlayers().stream()
+                .filter(p -> p.getUsername().equals(detectiveUsername))
+                .findFirst()
+                .orElseThrow(() -> new GameException("Detective not found in game"));
+            
+            if (detective.getRole() != Role.DETECTIVE) {
+                throw new GameException("Only detectives can view investigation results");
+            }
+            
+            // Find the target player
+            Player target = game.getPlayers().stream()
+                .filter(p -> p.getUsername().equals(targetUsername))
+                .findFirst()
+                .orElseThrow(() -> new GameException("Target player not found"));
+            
+            // Check if the detective has investigated this player
+            if (!target.isInvestigated()) {
+                throw new GameException("This player has not been investigated yet");
+            }
+            
+            // Return the investigation result
+            Map<String, Object> result = new HashMap<>();
+            result.put("targetUsername", targetUsername);
+            result.put("isMafia", target.getRole() == Role.MAFIA);
+            
+            String resultMessage = target.getRole() == Role.MAFIA ? 
+                targetUsername + " is MAFIA! They are your enemy." :
+                targetUsername + " is INNOCENT. They are not Mafia.";
+            result.put("message", resultMessage);
+            
+            return ResponseEntity.ok(result);
         } catch (GameException e) {
             Map<String, Object> error = new HashMap<>();
             error.put("message", e.getMessage());
