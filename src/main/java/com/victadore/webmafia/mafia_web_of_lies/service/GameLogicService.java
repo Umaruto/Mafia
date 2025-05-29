@@ -16,12 +16,14 @@ public class GameLogicService {
     private final PlayerService playerService;
     private final GameRepository gameRepository;
     private final WebSocketService webSocketService;
+    private final ActionHistoryService actionHistoryService;
 
-    public GameLogicService(GameService gameService, PlayerService playerService, GameRepository gameRepository, WebSocketService webSocketService) {
+    public GameLogicService(GameService gameService, PlayerService playerService, GameRepository gameRepository, WebSocketService webSocketService, ActionHistoryService actionHistoryService) {
         this.gameService = gameService;
         this.playerService = playerService;
         this.gameRepository = gameRepository;
         this.webSocketService = webSocketService;
+        this.actionHistoryService = actionHistoryService;
     }
 
     // Start a new day phase
@@ -34,6 +36,9 @@ public class GameLogicService {
         game.setCurrentPhase(0); // 0 for day
         game.setCurrentDay(game.getCurrentDay() + 1);
         Game savedGame = gameRepository.save(game);
+        
+        // Record phase transition
+        actionHistoryService.recordPhaseTransition(savedGame.getId(), "NIGHT", "DAY");
         
         // Broadcast phase change
         webSocketService.broadcastGameUpdate(gameCode, 
@@ -56,6 +61,9 @@ public class GameLogicService {
         game.setCurrentPhase(1); // 1 for night
         Game savedGame = gameRepository.save(game);
         
+        // Record phase transition
+        actionHistoryService.recordPhaseTransition(savedGame.getId(), "DAY", "NIGHT");
+        
         // Broadcast phase change
         webSocketService.broadcastGameUpdate(gameCode, 
             new GameEvent("PHASE_CHANGE", gameCode, Map.of(
@@ -67,6 +75,31 @@ public class GameLogicService {
         return savedGame;
     }
 
+    /**
+     * Record initial game events after game is created
+     */
+    public void recordGameStartEvents(String gameCode) {
+        Game game = gameRepository.findByGameCode(gameCode);
+        if (game == null) {
+            throw new GameException("Game not found");
+        }
+        
+        // Record game start event
+        actionHistoryService.recordGameEvent(game.getId(), "GAME_START", 
+                                           String.format("Game started with %d players", game.getPlayers().size()),
+                                           "Game successfully started");
+        
+        // Record role assignments for audit purposes (without revealing roles)
+        for (Player player : game.getPlayers()) {
+            actionHistoryService.recordAction(game.getId(), "ROLE_ASSIGNED", "SYSTEM", 
+                                            player.getUsername(), 
+                                            "Role assigned to player during game start",
+                                            "Role assignment completed", true);
+        }
+        
+        // Record the first phase transition
+        actionHistoryService.recordPhaseTransition(game.getId(), "SETUP", "NIGHT");
+    }
 
     // Handle night actions
     public Game handleNightAction(String gameCode, String actorUsername, String targetUsername, String actionType) {
@@ -97,6 +130,9 @@ public class GameLogicService {
             throw new GameException("Cannot target dead players");
         }
 
+        boolean actionSuccessful = true;
+        String additionalData = null;
+
         // Process different night actions based on role
         switch (actor.getRole()) {
             case MAFIA:
@@ -104,6 +140,11 @@ public class GameLogicService {
                     // Allow each Mafia member to vote for their preferred target
                     game.getMafiaVotes().put(actor.getId(), target.getId());
                     game.getPlayersWhoActedAtNight().add(actor.getId());
+                    
+                    // Record Mafia kill vote action
+                    additionalData = "Mafia vote for elimination";
+                    actionHistoryService.recordNightAction(game.getId(), actionType, actorUsername, 
+                                                         targetUsername, actionSuccessful, additionalData);
                     
                     // Check if all living Mafia members have voted
                     long livingMafiaCount = game.getPlayers().stream()
@@ -118,13 +159,19 @@ public class GameLogicService {
                         Long chosenTarget = determineMafiaTarget(game);
                         game.setMafiaTarget(chosenTarget);
                         
-                        // Notify all Mafia members about the final decision
+                        // Record the final Mafia decision
                         Player finalTarget = game.getPlayers().stream()
                             .filter(p -> p.getId().equals(chosenTarget))
                             .findFirst()
                             .orElse(null);
                             
                         if (finalTarget != null) {
+                            actionHistoryService.recordAction(game.getId(), "MAFIA_TARGET_CHOSEN", 
+                                                            "MAFIA_TEAM", finalTarget.getUsername(),
+                                                            "Mafia team consensus reached for elimination target",
+                                                            "Target chosen: " + finalTarget.getUsername(), true);
+                            
+                            // Notify all Mafia members about the final decision
                             game.getPlayers().stream()
                                 .filter(p -> p.getRole() == Role.MAFIA && p.isAlive())
                                 .forEach(mafiaPlayer -> {
@@ -170,6 +217,11 @@ public class GameLogicService {
                     game.setDoctorTarget(target.getId());
                     game.getPlayersWhoActedAtNight().add(actor.getId());
                     
+                    // Record doctor save action
+                    additionalData = "Doctor protection";
+                    actionHistoryService.recordNightAction(game.getId(), actionType, actorUsername, 
+                                                         targetUsername, actionSuccessful, additionalData);
+                    
                     // Send confirmation to doctor
                     webSocketService.sendPrivateMessage(actor.getUsername(), 
                         new GameEvent("PLAYER_SAVED", gameCode, Map.of(
@@ -188,6 +240,11 @@ public class GameLogicService {
                     playerService.investigatePlayer(target.getId());
                     game.getPlayersWhoActedAtNight().add(actor.getId());
                     
+                    // Record detective investigation action
+                    additionalData = "Investigation result: " + (isMafia ? "MAFIA" : "INNOCENT");
+                    actionHistoryService.recordNightAction(game.getId(), actionType, actorUsername, 
+                                                         targetUsername, actionSuccessful, additionalData);
+                    
                     // Send clear investigation result to detective
                     String resultMessage = isMafia ? 
                         target.getUsername() + " is MAFIA! They are your enemy." :
@@ -203,10 +260,12 @@ public class GameLogicService {
                 }
                 break;
             default:
+                actionSuccessful = false;
+                actionHistoryService.recordNightAction(game.getId(), actionType, actorUsername, 
+                                                     targetUsername, actionSuccessful, 
+                                                     "Invalid action for role: " + actor.getRole());
                 throw new GameException("Invalid night action for role: " + actor.getRole());
         }
-
-        // Remove the automatic marking of all Mafia members - each acts individually now
 
         // Check if all night actions are complete
         checkAndTransitionToDay(game);
@@ -281,9 +340,24 @@ public class GameLogicService {
         if (game.getMafiaTarget() != null) {
             boolean wasSaved = false;
             
+            // Find the targeted player
+            Player targetedPlayer = game.getPlayers().stream()
+                .filter(p -> p.getId().equals(game.getMafiaTarget()))
+                .findFirst()
+                .orElse(null);
+            
             // Check if doctor saved the target
             if (game.getDoctorTarget() != null && game.getDoctorTarget().equals(game.getMafiaTarget())) {
                 wasSaved = true;
+                
+                // Record successful doctor save
+                if (targetedPlayer != null) {
+                    actionHistoryService.recordAction(game.getId(), "NIGHT_SAVE_SUCCESS", "DOCTOR", 
+                                                    targetedPlayer.getUsername(),
+                                                    "Doctor successfully saved player from Mafia elimination",
+                                                    "Player saved from death", true);
+                }
+                
                 // Notify that someone was saved
                 webSocketService.broadcastGameUpdate(game.getGameCode(), 
                     new GameEvent("PLAYER_SAVED_ANONYMOUSLY", game.getGameCode(), Map.of(
@@ -296,23 +370,26 @@ public class GameLogicService {
                 // Kill the target
                 playerService.killPlayer(game.getMafiaTarget());
                 
-                // Find the killed player's name
-                Player killedPlayer = game.getPlayers().stream()
-                    .filter(p -> p.getId().equals(game.getMafiaTarget()))
-                    .findFirst()
-                    .orElse(null);
+                // Record night elimination
+                if (targetedPlayer != null) {
+                    actionHistoryService.recordElimination(game.getId(), targetedPlayer.getUsername(), 
+                                                         "MAFIA_KILL", 0, 
+                                                         "Eliminated by Mafia during night phase");
                     
-                if (killedPlayer != null) {
                     // Notify about the death (revealed during day phase)
                     webSocketService.broadcastGameUpdate(game.getGameCode(), 
                         new GameEvent("PLAYER_DIED_LAST_NIGHT", game.getGameCode(), Map.of(
-                            "target", killedPlayer.getUsername()
+                            "target", targetedPlayer.getUsername()
                         ))
                     );
                 }
             }
         } else {
             // No one was targeted by Mafia
+            actionHistoryService.recordAction(game.getId(), "NO_NIGHT_KILL", "SYSTEM", null,
+                                            "No player was targeted for elimination by Mafia",
+                                            "No deaths during night phase", true);
+            
             webSocketService.broadcastGameUpdate(game.getGameCode(), 
                 new GameEvent("NO_DEATHS_LAST_NIGHT", game.getGameCode(), Map.of(
                     "message", "No one died last night."
@@ -331,10 +408,23 @@ public class GameLogicService {
 
         if (mafiaCount == 0) {
             game.setWinner("CITIZENS");
+            
+            // Record citizen victory
+            actionHistoryService.recordGameEvent(game.getId(), "GAME_END", 
+                                               "Citizens eliminated all Mafia members",
+                                               "Citizens victory - All Mafia eliminated");
+            
             return GameState.FINISHED; // Citizens win
         }
         if (mafiaCount >= citizenCount) {
             game.setWinner("MAFIA");
+            
+            // Record Mafia victory
+            actionHistoryService.recordGameEvent(game.getId(), "GAME_END", 
+                                               String.format("Mafia achieved majority control (%d Mafia vs %d Citizens)", 
+                                                           mafiaCount, citizenCount),
+                                               "Mafia victory - Majority control achieved");
+            
             return GameState.FINISHED; // Mafia win
         }
         return GameState.IN_PROGRESS; // Game continues
@@ -344,6 +434,10 @@ public class GameLogicService {
         Game game = gameRepository.findByGameCode(gameCode);
         if (game == null) {
             throw new GameException("Game not found");
+        }
+
+        if (game.getGameState() != GameState.IN_PROGRESS) {
+            throw new GameException("Game is not in progress");
         }
 
         if (game.getCurrentPhase() != 0) {
@@ -364,12 +458,34 @@ public class GameLogicService {
             throw new GameException("You have already voted");
         }
 
+        boolean isSkip = voteRequest.getSkip() != null && voteRequest.getSkip();
+        boolean voteSuccessful = true;
+
         // Handle skip vote
-        if (voteRequest.isSkip()) {
+        if (isSkip) {
             game.getPlayersWhoVoted().add(voter.getId());
             // Track skip vote as null target
             game.getIndividualVotes().put(voter.getId(), null);
-            return gameRepository.save(game);
+            
+            // Record skip vote action
+            actionHistoryService.recordVoteAction(game.getId(), voteRequest.getVoterUsername(), 
+                                                null, true, voteSuccessful);
+            
+            // Check if voting phase is complete after skip vote
+            checkVotingPhaseCompletion(game);
+            
+            Game savedGame = gameRepository.save(game);
+            
+            // Broadcast skip vote
+            webSocketService.broadcastGameUpdate(gameCode, 
+                new GameEvent("VOTE_CAST", gameCode, Map.of(
+                    "voter", voteRequest.getVoterUsername(),
+                    "target", "SKIP",
+                    "skip", true
+                ))
+            );
+            
+            return savedGame;
         }
 
         // Handle normal vote
@@ -388,6 +504,11 @@ public class GameLogicService {
 
         // Process the vote
         processVote(game, voter, target);
+        
+        // Record vote action
+        actionHistoryService.recordVoteAction(game.getId(), voteRequest.getVoterUsername(), 
+                                            voteRequest.getTargetUsername(), false, voteSuccessful);
+        
         Game savedGame = gameRepository.save(game);
         
         // Broadcast vote
@@ -395,7 +516,7 @@ public class GameLogicService {
             new GameEvent("VOTE_CAST", gameCode, Map.of(
                 "voter", voteRequest.getVoterUsername(),
                 "target", voteRequest.getTargetUsername(),
-                "skip", voteRequest.isSkip()
+                "skip", voteRequest.getSkip() != null ? voteRequest.getSkip() : false
             ))
         );
         
@@ -414,95 +535,7 @@ public class GameLogicService {
         game.getPlayersWhoVoted().add(voter.getId());
         
         // Check if voting phase is complete
-        int totalVotes = (int) game.getPlayersWhoVoted().size();
-        int requiredVotes = (int) game.getPlayers().stream()
-            .filter(Player::isAlive)
-            .count();
-        
-        if (totalVotes >= requiredVotes) {
-            // Find the highest vote count
-            int maxVotes = votes.values().stream()
-                .mapToInt(Integer::intValue)
-                .max()
-                .orElse(0);
-            
-            // Find all players with the highest vote count
-            List<Long> playersWithMaxVotes = votes.entrySet().stream()
-                .filter(entry -> entry.getValue() == maxVotes)
-                .map(Map.Entry::getKey)
-                .collect(Collectors.toList());
-            
-            // Only eliminate if there's exactly one player with the most votes (no tie)
-            if (playersWithMaxVotes.size() == 1 && maxVotes > 0) {
-                Long playerToEliminate = playersWithMaxVotes.get(0);
-                
-                // Eliminate the player
-                playerService.killPlayer(playerToEliminate);
-                
-                // Broadcast elimination
-                Player eliminatedPlayer = game.getPlayers().stream()
-                    .filter(p -> p.getId().equals(playerToEliminate))
-                    .findFirst()
-                    .orElse(null);
-                    
-                if (eliminatedPlayer != null) {
-                    webSocketService.broadcastGameUpdate(game.getGameCode(), 
-                        new GameEvent("PLAYER_ELIMINATED", game.getGameCode(), Map.of(
-                            "target", eliminatedPlayer.getUsername(),
-                            "reason", "voting"
-                        ))
-                    );
-                }
-                
-                // Check win conditions after elimination
-                GameState newState = checkWinConditions(game);
-                if (newState == GameState.FINISHED) {
-                    game.setGameState(newState);
-                    // Clear votes and voting status
-                    votes.clear();
-                    game.getPlayersWhoVoted().clear();
-                    game.getIndividualVotes().clear();
-                    return; // Don't transition phases if game is over
-                }
-            } else if (playersWithMaxVotes.size() > 1) {
-                // Handle tie vote - no elimination
-                List<String> tiedPlayers = playersWithMaxVotes.stream()
-                    .map(playerId -> game.getPlayers().stream()
-                        .filter(p -> p.getId().equals(playerId))
-                        .map(Player::getUsername)
-                        .findFirst()
-                        .orElse("Unknown"))
-                    .collect(Collectors.toList());
-                
-                webSocketService.broadcastGameUpdate(game.getGameCode(), 
-                    new GameEvent("VOTE_TIE", game.getGameCode(), Map.of(
-                        "message", "Vote ended in a tie between: " + String.join(", ", tiedPlayers) + ". No one is eliminated.",
-                        "tiedPlayers", tiedPlayers
-                    ))
-                );
-            } else {
-                // No votes or all votes were skipped
-                webSocketService.broadcastGameUpdate(game.getGameCode(), 
-                    new GameEvent("NO_ELIMINATION", game.getGameCode(), Map.of(
-                        "message", "No one received enough votes. No elimination this round."
-                    ))
-                );
-            }
-            
-            // Clear votes and voting status for next round (regardless of outcome)
-            votes.clear();
-            game.getPlayersWhoVoted().clear();
-            game.getIndividualVotes().clear();
-            
-            // Automatically transition to night phase after voting is complete
-            game.setCurrentPhase(1); // Night phase
-            webSocketService.broadcastGameUpdate(game.getGameCode(), 
-                new GameEvent("PHASE_CHANGE", game.getGameCode(), Map.of(
-                    "phase", "NIGHT",
-                    "day", game.getCurrentDay()
-                ))
-            );
-        }
+        checkVotingPhaseCompletion(game);
     }
 
     // Add method to check if a player has voted (including skip)
@@ -565,6 +598,9 @@ public class GameLogicService {
             game.setDoctorTarget(null);
             game.getMafiaVotes().clear();
             
+            // Record phase transition
+            actionHistoryService.recordPhaseTransition(game.getId(), "DAY", "NIGHT");
+            
             webSocketService.broadcastGameUpdate(gameCode, 
                 new GameEvent("PHASE_CHANGE", gameCode, Map.of(
                     "phase", "NIGHT",
@@ -581,6 +617,9 @@ public class GameLogicService {
             game.setMafiaTarget(null);
             game.setDoctorTarget(null);
             game.getMafiaVotes().clear();
+            
+            // Record phase transition
+            actionHistoryService.recordPhaseTransition(game.getId(), "NIGHT", "DAY");
             
             // Check win conditions
             GameState newState = checkWinConditions(game);
@@ -612,5 +651,114 @@ public class GameLogicService {
             .max(Map.Entry.comparingByValue())
             .map(Map.Entry::getKey)
             .orElse(null);
+    }
+
+    private void checkVotingPhaseCompletion(Game game) {
+        // Check if voting phase is complete
+        int totalVotes = (int) game.getPlayersWhoVoted().size();
+        int requiredVotes = (int) game.getPlayers().stream()
+            .filter(Player::isAlive)
+            .count();
+        
+        if (totalVotes >= requiredVotes) {
+            // Find the highest vote count
+            int maxVotes = game.getVotes().values().stream()
+                .mapToInt(Integer::intValue)
+                .max()
+                .orElse(0);
+            
+            // Find all players with the highest vote count
+            List<Long> playersWithMaxVotes = game.getVotes().entrySet().stream()
+                .filter(entry -> entry.getValue() == maxVotes)
+                .map(Map.Entry::getKey)
+                .collect(Collectors.toList());
+            
+            // Only eliminate if there's exactly one player with the most votes (no tie)
+            if (playersWithMaxVotes.size() == 1 && maxVotes > 0) {
+                Long playerToEliminate = playersWithMaxVotes.get(0);
+                
+                // Get player info before elimination for history tracking
+                Player eliminatedPlayer = game.getPlayers().stream()
+                    .filter(p -> p.getId().equals(playerToEliminate))
+                    .findFirst()
+                    .orElse(null);
+                
+                // Eliminate the player
+                playerService.killPlayer(playerToEliminate);
+                
+                // Record elimination in action history
+                if (eliminatedPlayer != null) {
+                    actionHistoryService.recordElimination(game.getId(), eliminatedPlayer.getUsername(), 
+                                                         "VOTING", maxVotes, 
+                                                         String.format("Eliminated with %d votes during day phase", maxVotes));
+                    
+                    // Broadcast elimination
+                    webSocketService.broadcastGameUpdate(game.getGameCode(), 
+                        new GameEvent("PLAYER_ELIMINATED", game.getGameCode(), Map.of(
+                            "target", eliminatedPlayer.getUsername(),
+                            "reason", "voting",
+                            "voteCount", maxVotes
+                        ))
+                    );
+                }
+                
+                // Check win conditions after elimination
+                GameState newState = checkWinConditions(game);
+                if (newState == GameState.FINISHED) {
+                    game.setGameState(newState);
+                    // Clear votes and voting status
+                    game.getVotes().clear();
+                    game.getPlayersWhoVoted().clear();
+                    game.getIndividualVotes().clear();
+                    return; // Don't transition phases if game is over
+                }
+            } else if (playersWithMaxVotes.size() > 1) {
+                // Handle tie vote - no elimination
+                List<String> tiedPlayers = playersWithMaxVotes.stream()
+                    .map(playerId -> game.getPlayers().stream()
+                        .filter(p -> p.getId().equals(playerId))
+                        .map(Player::getUsername)
+                        .findFirst()
+                        .orElse("Unknown"))
+                    .collect(Collectors.toList());
+                
+                // Record tie vote in action history
+                actionHistoryService.recordAction(game.getId(), "VOTE_TIE", "SYSTEM", null,
+                                                String.format("Vote tie between: %s", String.join(", ", tiedPlayers)),
+                                                "No elimination due to tie vote", true);
+                
+                webSocketService.broadcastGameUpdate(game.getGameCode(), 
+                    new GameEvent("VOTE_TIE", game.getGameCode(), Map.of(
+                        "message", "Vote ended in a tie between: " + String.join(", ", tiedPlayers) + ". No one is eliminated.",
+                        "tiedPlayers", tiedPlayers
+                    ))
+                );
+            } else {
+                // No votes or all votes were skipped
+                actionHistoryService.recordAction(game.getId(), "NO_ELIMINATION", "SYSTEM", null,
+                                                "No votes cast or insufficient votes for elimination",
+                                                "No elimination this round", true);
+                
+                webSocketService.broadcastGameUpdate(game.getGameCode(), 
+                    new GameEvent("NO_ELIMINATION", game.getGameCode(), Map.of(
+                        "message", "No one received enough votes. No elimination this round."
+                    ))
+                );
+            }
+            
+            // Clear votes and voting status for next round (regardless of outcome)
+            game.getVotes().clear();
+            game.getPlayersWhoVoted().clear();
+            game.getIndividualVotes().clear();
+            
+            // Automatically transition to night phase after voting is complete
+            game.setCurrentPhase(1); // Night phase
+            webSocketService.broadcastGameUpdate(game.getGameCode(), 
+                new GameEvent("PHASE_CHANGE", game.getGameCode(), Map.of(
+                    "phase", "NIGHT",
+                    "day", game.getCurrentDay()
+                ))
+            );
+        }
     }
 }

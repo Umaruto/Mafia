@@ -14,7 +14,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!username) return;
 
         try {
-            const response = await fetch('/api/games', {
+            const response = await fetch('/api/games/legacy', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
@@ -54,7 +54,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!gameCode) return;
 
         try {
-            const response = await fetch(`/api/games/${gameCode}/join`, {
+            const response = await fetch(`/api/games/${gameCode}/join/legacy`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',

@@ -11,18 +11,20 @@ import com.victadore.webmafia.mafia_web_of_lies.repository.GameRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.victadore.webmafia.mafia_web_of_lies.exception.GameException;
-
-
+import org.springframework.context.annotation.Lazy;
 
 @Service
 @Transactional
 public class GameService {
     private final GameRepository gameRepository;
     private final PlayerService playerService;
-
-    public GameService(GameRepository gameRepository, PlayerService playerService) {
+    private final ActionHistoryService actionHistoryService;
+    
+    public GameService(GameRepository gameRepository, PlayerService playerService, 
+                      @Lazy ActionHistoryService actionHistoryService) {
         this.gameRepository = gameRepository;
         this.playerService = playerService;
+        this.actionHistoryService = actionHistoryService;
     }
     
     public Game createGame(String createdBy){
@@ -107,7 +109,31 @@ public class GameService {
         game.setGameState(GameState.IN_PROGRESS);
         game.setCurrentDay(1);
         game.setCurrentPhase(1); // 1 = Night phase (game starts with night), 0 = Day phase
-        return gameRepository.save(game);
+        
+        Game savedGame = gameRepository.save(game);
+        
+        // Record game start events in action history (after game is saved)
+        try {
+            actionHistoryService.recordGameEvent(savedGame.getId(), "GAME_START", 
+                                               String.format("Game started with %d players", savedGame.getPlayers().size()),
+                                               "Game successfully started");
+            
+            // Record role assignments for audit purposes (without revealing roles)
+            for (Player player : savedGame.getPlayers()) {
+                actionHistoryService.recordAction(savedGame.getId(), "ROLE_ASSIGNED", "SYSTEM", 
+                                                player.getUsername(), 
+                                                "Role assigned to player during game start",
+                                                "Role assignment completed", true);
+            }
+            
+            // Record the first phase transition
+            actionHistoryService.recordPhaseTransition(savedGame.getId(), "SETUP", "NIGHT");
+        } catch (Exception e) {
+            // If action history recording fails, log but don't fail the game start
+            System.err.println("Failed to record action history for game start: " + e.getMessage());
+        }
+        
+        return savedGame;
     }
 
     public Game advanceToNightPhase(String gameCode) {
@@ -172,11 +198,32 @@ public class GameService {
             game.setGameState(GameState.FINISHED);
             game.setWinner("CITIZENS");
             gameRepository.save(game);
+            
+            // Record citizen victory
+            try {
+                actionHistoryService.recordGameEvent(game.getId(), "GAME_END", 
+                                                   "Citizens eliminated all Mafia members",
+                                                   "Citizens victory - All Mafia eliminated");
+            } catch (Exception e) {
+                System.err.println("Failed to record game end event: " + e.getMessage());
+            }
+            
             return "CITIZENS";
         } else if (aliveMafia >= aliveCitizens) {
             game.setGameState(GameState.FINISHED);
             game.setWinner("MAFIA");
             gameRepository.save(game);
+            
+            // Record Mafia victory
+            try {
+                actionHistoryService.recordGameEvent(game.getId(), "GAME_END", 
+                                                   String.format("Mafia achieved majority control (%d Mafia vs %d Citizens)", 
+                                                               aliveMafia, aliveCitizens),
+                                                   "Mafia victory - Majority control achieved");
+            } catch (Exception e) {
+                System.err.println("Failed to record game end event: " + e.getMessage());
+            }
+            
             return "MAFIA";
         }
         

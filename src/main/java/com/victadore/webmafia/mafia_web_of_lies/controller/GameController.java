@@ -3,11 +3,15 @@ package com.victadore.webmafia.mafia_web_of_lies.controller;
 import com.victadore.webmafia.mafia_web_of_lies.exception.*;
 import com.victadore.webmafia.mafia_web_of_lies.model.*;
 import com.victadore.webmafia.mafia_web_of_lies.service.*;
+import com.victadore.webmafia.mafia_web_of_lies.dto.*;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -18,15 +22,46 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/games")
 public class GameController {
     private final GameService gameService;
+    private final ValidationService validationService;
 
-    public GameController(GameService gameService) {
+    public GameController(GameService gameService, ValidationService validationService) {
         this.gameService = gameService;
+        this.validationService = validationService;
     }
 
     @PostMapping
     @ResponseBody
-    public ResponseEntity<?> createGame(@RequestParam String createdBy) {
+    public ResponseEntity<Map<String, Object>> createGame(@Valid @RequestBody GameCreateRequest request) {
         try {
+            // Additional business validation
+            validationService.validateGameCreation(request.getCreatedBy(), request.getMinPlayers(), request.getMaxPlayers());
+            
+            Game game = gameService.createGame(request.getCreatedBy());
+            Map<String, Object> response = new HashMap<>();
+            response.put("gameCode", game.getGameCode());
+            response.put("message", "Game created successfully");
+            return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(response);
+        } catch (ValidationException e) {
+            throw e; // Let global exception handler deal with it
+        } catch (GameException e) {
+            Map<String, Object> error = new HashMap<>();
+            error.put("message", e.getMessage());
+            return ResponseEntity.badRequest()
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(error);
+        }
+    }
+
+    // Backup endpoint for form-based creation (for existing frontend compatibility)
+    @PostMapping("/legacy")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> createGameLegacy(@RequestParam String createdBy) {
+        try {
+            validationService.validateUsername(createdBy);
+            validationService.validateGameCreation(createdBy, 4, 15);
+            
             Game game = gameService.createGame(createdBy);
             Map<String, Object> response = new HashMap<>();
             response.put("gameCode", game.getGameCode());
@@ -34,8 +69,10 @@ public class GameController {
             return ResponseEntity.ok()
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(response);
+        } catch (ValidationException e) {
+            throw e;
         } catch (GameException e) {
-            Map<String, String> error = new HashMap<>();
+            Map<String, Object> error = new HashMap<>();
             error.put("message", e.getMessage());
             return ResponseEntity.badRequest()
                 .contentType(MediaType.APPLICATION_JSON)
@@ -44,23 +81,65 @@ public class GameController {
     }
 
     @GetMapping("/game/{gameCode}")
-    public String gamePage(@PathVariable String gameCode, 
-                        @RequestParam String username,
-                        Model model) {
-        Game game = gameService.getGameByCode(gameCode);
-        if (game == null) {
-            throw new GameException("Game not found");
+    public String gamePage(
+            @PathVariable @Pattern(regexp = "^[A-Z0-9]{6}$", message = "Invalid game code format") String gameCode, 
+            @RequestParam @Size(min = 2, max = 20, message = "Invalid username length") String username,
+            Model model) {
+        try {
+            validationService.validateGameCode(gameCode);
+            validationService.validateUsername(username);
+            
+            Game game = gameService.getGameByCode(gameCode);
+            model.addAttribute("gameCode", gameCode);
+            model.addAttribute("username", username);
+            return "game";
+        } catch (ValidationException e) {
+            throw new GameException("Invalid parameters: " + e.getMessage());
         }
-        
-        model.addAttribute("gameCode", gameCode);
-        model.addAttribute("username", username);
-        return "game";
     }
 
     @PostMapping("/{gameCode}/join")
     @ResponseBody
-    public ResponseEntity<?> joinGame(@PathVariable String gameCode, @RequestParam String username) {
+    public ResponseEntity<Map<String, Object>> joinGame(
+            @PathVariable @Pattern(regexp = "^[A-Z0-9]{6}$", message = "Invalid game code format") String gameCode, 
+            @Valid @RequestBody GameJoinRequest request) {
         try {
+            // Validate that path variable matches request body
+            if (!gameCode.equals(request.getGameCode())) {
+                throw new ValidationException("Game code in URL must match game code in request body");
+            }
+            
+            validationService.validateGameCode(gameCode);
+            validationService.validateUsername(request.getUsername());
+            
+            Game game = gameService.joinGame(gameCode, request.getUsername());
+            Map<String, Object> response = new HashMap<>();
+            response.put("gameCode", game.getGameCode());
+            response.put("message", "Successfully joined the game");
+            return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(response);
+        } catch (ValidationException e) {
+            throw e;
+        } catch (GameException e) {
+            Map<String, Object> error = new HashMap<>();
+            error.put("message", e.getMessage());
+            return ResponseEntity.badRequest()
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(error);
+        }
+    }
+
+    // Backup endpoint for form-based joining (for existing frontend compatibility)
+    @PostMapping("/{gameCode}/join/legacy")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> joinGameLegacy(
+            @PathVariable String gameCode, 
+            @RequestParam String username) {
+        try {
+            validationService.validateGameCode(gameCode);
+            validationService.validateUsername(username);
+            
             Game game = gameService.joinGame(gameCode, username);
             Map<String, Object> response = new HashMap<>();
             response.put("gameCode", game.getGameCode());
@@ -68,8 +147,10 @@ public class GameController {
             return ResponseEntity.ok()
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(response);
+        } catch (ValidationException e) {
+            throw e;
         } catch (GameException e) {
-            Map<String, String> error = new HashMap<>();
+            Map<String, Object> error = new HashMap<>();
             error.put("message", e.getMessage());
             return ResponseEntity.badRequest()
                 .contentType(MediaType.APPLICATION_JSON)
@@ -78,61 +159,78 @@ public class GameController {
     }
 
     @GetMapping("/{gameCode}/waiting-room")
-    public String waitingRoom(@PathVariable String gameCode, 
-                            @RequestParam String username,
-                            Model model) {
-        Game game = gameService.getGameByCode(gameCode);
-        if (game == null) {
-            throw new GameException("Game not found");
+    public String waitingRoom(
+            @PathVariable @Pattern(regexp = "^[A-Z0-9]{6}$", message = "Invalid game code format") String gameCode, 
+            @RequestParam @Size(min = 2, max = 20, message = "Invalid username length") String username,
+            Model model) {
+        try {
+            validationService.validateGameCode(gameCode);
+            validationService.validateUsername(username);
+            
+            Game game = gameService.getGameByCode(gameCode);
+            
+            model.addAttribute("gameCode", gameCode);
+            model.addAttribute("username", username);
+            model.addAttribute("isCreator", game.getCreatedBy().equals(username));
+            model.addAttribute("playerCount", game.getPlayers().size());
+            model.addAttribute("minPlayers", game.getMinPlayers());
+            model.addAttribute("maxPlayers", game.getMaxPlayers());
+            
+            return "waiting-room";
+        } catch (ValidationException e) {
+            throw new GameException("Invalid parameters: " + e.getMessage());
         }
-        
-        model.addAttribute("gameCode", gameCode);
-        model.addAttribute("username", username);
-        model.addAttribute("isCreator", game.getCreatedBy().equals(username));
-        model.addAttribute("playerCount", game.getPlayers().size());
-        model.addAttribute("minPlayers", game.getMinPlayers());
-        model.addAttribute("maxPlayers", game.getMaxPlayers());
-        
-        return "waiting-room";
     }
 
     @GetMapping("/{gameCode}/players")
     @ResponseBody
-    public ResponseEntity<List<Map<String, Object>>> getPlayers(@PathVariable String gameCode) {
-        Game game = gameService.getGameByCode(gameCode);
-        if (game == null) {
-            throw new GameException("Game not found");
-        }
-        
-        List<Map<String, Object>> players = game.getPlayers().stream()
-            .map(player -> {
-                Map<String, Object> playerInfo = new HashMap<>();
-                playerInfo.put("username", player.getUsername());
-                playerInfo.put("alive", player.isAlive());
-                return playerInfo;
-            })
-            .collect(Collectors.toList());
+    public ResponseEntity<List<Map<String, Object>>> getPlayers(
+            @PathVariable @Pattern(regexp = "^[A-Z0-9]{6}$", message = "Invalid game code format") String gameCode) {
+        try {
+            validationService.validateGameCode(gameCode);
             
-        return ResponseEntity.ok(players);
+            Game game = gameService.getGameByCode(gameCode);
+            
+            List<Map<String, Object>> players = game.getPlayers().stream()
+                .map(player -> {
+                    Map<String, Object> playerInfo = new HashMap<>();
+                    playerInfo.put("username", player.getUsername());
+                    playerInfo.put("alive", player.isAlive());
+                    return playerInfo;
+                })
+                .collect(Collectors.toList());
+                
+            return ResponseEntity.ok(players);
+        } catch (ValidationException e) {
+            throw e;
+        }
     }
 
     @PostMapping("/{gameCode}/start")
     @ResponseBody
-    public ResponseEntity<?> startGame(@PathVariable String gameCode, @RequestParam String username) {
+    public ResponseEntity<Map<String, Object>> startGame(
+            @PathVariable @Pattern(regexp = "^[A-Z0-9]{6}$", message = "Invalid game code format") String gameCode, 
+            @RequestParam @Size(min = 2, max = 20, message = "Invalid username length") String username) {
         try {
+            validationService.validateGameCode(gameCode);
+            validationService.validateUsername(username);
+            
             Game game = gameService.getGameByCode(gameCode);
             if (!game.getCreatedBy().equals(username)) {
                 throw new GameException("Only the game creator can start the game");
             }
             
             gameService.startGame(gameCode);
-            Map<String, String> response = new HashMap<>();
+            
+            Map<String, Object> response = new HashMap<>();
             response.put("message", "Game started successfully");
             return ResponseEntity.ok()
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(response);
+        } catch (ValidationException e) {
+            throw e;
         } catch (GameException e) {
-            Map<String, String> error = new HashMap<>();
+            Map<String, Object> error = new HashMap<>();
             error.put("message", e.getMessage());
             return ResponseEntity.badRequest()
                 .contentType(MediaType.APPLICATION_JSON)
@@ -142,8 +240,13 @@ public class GameController {
 
     @GetMapping("/{gameCode}/player/{username}/role")
     @ResponseBody
-    public ResponseEntity<Map<String, String>> getPlayerRole(@PathVariable String gameCode, @PathVariable String username) {
+    public ResponseEntity<Map<String, String>> getPlayerRole(
+            @PathVariable @Pattern(regexp = "^[A-Z0-9]{6}$", message = "Invalid game code format") String gameCode, 
+            @PathVariable @Size(min = 2, max = 20, message = "Invalid username length") String username) {
         try {
+            validationService.validateGameCode(gameCode);
+            validationService.validateUsername(username);
+            
             Game game = gameService.getGameByCode(gameCode);
             Player player = game.getPlayers().stream()
                 .filter(p -> p.getUsername().equals(username))
@@ -155,6 +258,8 @@ public class GameController {
             roleInfo.put("description", getRoleDescription(player.getRole()));
             
             return ResponseEntity.ok(roleInfo);
+        } catch (ValidationException e) {
+            throw e;
         } catch (GameException e) {
             Map<String, String> error = new HashMap<>();
             error.put("message", e.getMessage());
@@ -179,8 +284,11 @@ public class GameController {
 
     @GetMapping("/{gameCode}")
     @ResponseBody
-    public ResponseEntity<Map<String, Object>> getGameInfo(@PathVariable String gameCode) {
+    public ResponseEntity<Map<String, Object>> getGameInfo(
+            @PathVariable @Pattern(regexp = "^[A-Z0-9]{6}$", message = "Invalid game code format") String gameCode) {
         try {
+            validationService.validateGameCode(gameCode);
+            
             Game game = gameService.getGameByCode(gameCode);
             Map<String, Object> gameInfo = new HashMap<>();
             gameInfo.put("gameCode", game.getGameCode());
@@ -193,6 +301,8 @@ public class GameController {
             gameInfo.put("winner", game.getWinner());
             
             return ResponseEntity.ok(gameInfo);
+        } catch (ValidationException e) {
+            throw e;
         } catch (GameException e) {
             Map<String, Object> error = new HashMap<>();
             error.put("message", e.getMessage());
@@ -202,8 +312,11 @@ public class GameController {
 
     @GetMapping("/{gameCode}/players-with-roles")
     @ResponseBody
-    public ResponseEntity<List<Map<String, Object>>> getPlayersWithRoles(@PathVariable String gameCode) {
+    public ResponseEntity<List<Map<String, Object>>> getPlayersWithRoles(
+            @PathVariable @Pattern(regexp = "^[A-Z0-9]{6}$", message = "Invalid game code format") String gameCode) {
         try {
+            validationService.validateGameCode(gameCode);
+            
             Game game = gameService.getGameByCode(gameCode);
             
             // Only show roles if game is finished
@@ -222,6 +335,8 @@ public class GameController {
                 .collect(Collectors.toList());
                 
             return ResponseEntity.ok(players);
+        } catch (ValidationException e) {
+            throw e;
         } catch (GameException e) {
             List<Map<String, Object>> error = new ArrayList<>();
             Map<String, Object> errorMap = new HashMap<>();
@@ -233,8 +348,11 @@ public class GameController {
 
     @GetMapping("/{gameCode}/dead-players-roles")
     @ResponseBody
-    public ResponseEntity<List<Map<String, Object>>> getDeadPlayersWithRoles(@PathVariable String gameCode) {
+    public ResponseEntity<List<Map<String, Object>>> getDeadPlayersWithRoles(
+            @PathVariable @Pattern(regexp = "^[A-Z0-9]{6}$", message = "Invalid game code format") String gameCode) {
         try {
+            validationService.validateGameCode(gameCode);
+            
             Game game = gameService.getGameByCode(gameCode);
             
             List<Map<String, Object>> deadPlayers = game.getPlayers().stream()
@@ -249,6 +367,8 @@ public class GameController {
                 .collect(Collectors.toList());
                 
             return ResponseEntity.ok(deadPlayers);
+        } catch (ValidationException e) {
+            throw e;
         } catch (GameException e) {
             List<Map<String, Object>> error = new ArrayList<>();
             Map<String, Object> errorMap = new HashMap<>();
@@ -260,8 +380,13 @@ public class GameController {
 
     @GetMapping("/{gameCode}/mafia-team/{username}")
     @ResponseBody
-    public ResponseEntity<List<Map<String, Object>>> getMafiaTeam(@PathVariable String gameCode, @PathVariable String username) {
+    public ResponseEntity<List<Map<String, Object>>> getMafiaTeam(
+            @PathVariable @Pattern(regexp = "^[A-Z0-9]{6}$", message = "Invalid game code format") String gameCode, 
+            @PathVariable @Size(min = 2, max = 20, message = "Invalid username length") String username) {
         try {
+            validationService.validateGameCode(gameCode);
+            validationService.validateUsername(username);
+            
             Game game = gameService.getGameByCode(gameCode);
             
             // First verify that the requesting player is Mafia
@@ -287,6 +412,8 @@ public class GameController {
                 .collect(Collectors.toList());
                 
             return ResponseEntity.ok(mafiaMembers);
+        } catch (ValidationException e) {
+            throw e;
         } catch (GameException e) {
             List<Map<String, Object>> error = new ArrayList<>();
             Map<String, Object> errorMap = new HashMap<>();
@@ -298,24 +425,27 @@ public class GameController {
 
     @GetMapping("/{gameCode}/mafia-votes/{username}")
     @ResponseBody
-    public ResponseEntity<List<Map<String, Object>>> getMafiaVotingStatus(@PathVariable String gameCode, @PathVariable String username) {
+    public ResponseEntity<List<Map<String, Object>>> getMafiaVotes(
+            @PathVariable @Pattern(regexp = "^[A-Z0-9]{6}$", message = "Invalid game code format") String gameCode, 
+            @PathVariable @Size(min = 2, max = 20, message = "Invalid username length") String username) {
         try {
+            validationService.validateGameCode(gameCode);
+            validationService.validateUsername(username);
+            
             Game game = gameService.getGameByCode(gameCode);
             
-            // First verify that the requesting player is Mafia
+            // Verify that the requesting player is Mafia
             Player requestingPlayer = game.getPlayers().stream()
                 .filter(p -> p.getUsername().equals(username))
                 .findFirst()
                 .orElseThrow(() -> new GameException("Player not found in game"));
             
             if (requestingPlayer.getRole() != Role.MAFIA) {
-                throw new GameException("Only Mafia members can view Mafia voting status");
+                throw new GameException("Only Mafia members can view Mafia votes");
             }
             
-            // Get current Mafia votes
             List<Map<String, Object>> votingStatus = new ArrayList<>();
             
-            // For each living Mafia member, show their voting status
             game.getPlayers().stream()
                 .filter(player -> player.getRole() == Role.MAFIA && player.isAlive())
                 .forEach(mafiaPlayer -> {
@@ -343,6 +473,8 @@ public class GameController {
                 });
                 
             return ResponseEntity.ok(votingStatus);
+        } catch (ValidationException e) {
+            throw e;
         } catch (GameException e) {
             List<Map<String, Object>> error = new ArrayList<>();
             Map<String, Object> errorMap = new HashMap<>();
@@ -352,46 +484,47 @@ public class GameController {
         }
     }
 
-    @GetMapping("/{gameCode}/investigation-result/{detectiveUsername}/{targetUsername}")
+    @GetMapping("/{gameCode}/investigation-result/{investigatorUsername}/{targetUsername}")
     @ResponseBody
-    public ResponseEntity<Map<String, Object>> getInvestigationResult(@PathVariable String gameCode, 
-                                                                     @PathVariable String detectiveUsername, 
-                                                                     @PathVariable String targetUsername) {
+    public ResponseEntity<Map<String, Object>> getInvestigationResult(
+            @PathVariable @Pattern(regexp = "^[A-Z0-9]{6}$", message = "Invalid game code format") String gameCode,
+            @PathVariable @Size(min = 2, max = 20, message = "Invalid username length") String investigatorUsername,
+            @PathVariable @Size(min = 2, max = 20, message = "Invalid username length") String targetUsername) {
         try {
+            validationService.validateGameCode(gameCode);
+            validationService.validateUsername(investigatorUsername);
+            validationService.validateUsername(targetUsername);
+            
             Game game = gameService.getGameByCode(gameCode);
             
-            // Verify the requesting player is a detective
-            Player detective = game.getPlayers().stream()
-                .filter(p -> p.getUsername().equals(detectiveUsername))
+            // Verify investigator is detective
+            Player investigator = game.getPlayers().stream()
+                .filter(p -> p.getUsername().equals(investigatorUsername))
                 .findFirst()
-                .orElseThrow(() -> new GameException("Detective not found in game"));
+                .orElseThrow(() -> new GameException("Investigator not found"));
             
-            if (detective.getRole() != Role.DETECTIVE) {
+            if (investigator.getRole() != Role.DETECTIVE) {
                 throw new GameException("Only detectives can view investigation results");
             }
             
-            // Find the target player
             Player target = game.getPlayers().stream()
                 .filter(p -> p.getUsername().equals(targetUsername))
                 .findFirst()
-                .orElseThrow(() -> new GameException("Target player not found"));
+                .orElseThrow(() -> new GameException("Target not found"));
             
-            // Check if the detective has investigated this player
-            if (!target.isInvestigated()) {
-                throw new GameException("This player has not been investigated yet");
-            }
-            
-            // Return the investigation result
-            Map<String, Object> result = new HashMap<>();
-            result.put("targetUsername", targetUsername);
-            result.put("isMafia", target.getRole() == Role.MAFIA);
-            
-            String resultMessage = target.getRole() == Role.MAFIA ? 
+            boolean isMafia = target.getRole() == Role.MAFIA;
+            String resultMessage = isMafia ? 
                 targetUsername + " is MAFIA! They are your enemy." :
                 targetUsername + " is INNOCENT. They are not Mafia.";
+            
+            Map<String, Object> result = new HashMap<>();
+            result.put("targetUsername", targetUsername);
+            result.put("isMafia", isMafia);
             result.put("message", resultMessage);
             
             return ResponseEntity.ok(result);
+        } catch (ValidationException e) {
+            throw e;
         } catch (GameException e) {
             Map<String, Object> error = new HashMap<>();
             error.put("message", e.getMessage());

@@ -6,6 +6,10 @@
     <title>Mafia: Web of Lies</title>
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <!-- Action History CSS -->
+    <link rel="stylesheet" th:href="@{/css/actionHistory.css}">
     <style>
         .game-container {
             padding: 20px;
@@ -43,6 +47,14 @@
             padding: 15px;
             border-radius: 5px;
             margin-bottom: 20px;
+        }
+        .action-history-section {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            max-height: 400px;
+            overflow-y: auto;
         }
         .vote-status-item {
             display: flex;
@@ -93,6 +105,16 @@
                     <input type="hidden" id="username" th:value="${username}">
                     <span>Day: <span id="day">1</span></span>
                     <span>Phase: <span id="phase">DAY</span></span>
+                    
+                    <!-- Sound Settings Button -->
+                    <div class="float-end">
+                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="window.soundSettingsUI.show()" title="Sound Settings">
+                            <i class="fas fa-volume-up"></i>
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm ms-1" onclick="toggleSound()" id="soundToggleBtn" title="Toggle Sound">
+                            <i class="fas fa-volume-up" id="soundToggleIcon"></i>
+                        </button>
+                    </div>
                 </div>
                 
                 <!-- Game Notifications -->
@@ -117,6 +139,14 @@
                     <h4>Your Role</h4>
                     <div id="roleInfo">
                         <p>Loading...</p>
+                    </div>
+                </div>
+
+                <!-- Action History Panel -->
+                <div class="action-history-section">
+                    <h4>Action History</h4>
+                    <div id="actionHistoryPanel">
+                        <!-- Action history will be loaded here -->
                     </div>
                 </div>
             </div>
@@ -179,6 +209,12 @@
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- SockJS and STOMP for WebSocket -->
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1.6.1/dist/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    <!-- Sound Manager JavaScript -->
+    <script th:src="@{/js/soundManager.js}"></script>
+    <script th:src="@{/js/soundSettings.js}"></script>
     <script th:inline="javascript">
         const gameCode = /*[[${gameCode}]]*/ '';
         const username = /*[[${username}]]*/ '';
@@ -302,6 +338,10 @@
                                 showDayPhase();
                                 startPhaseTimer(DAY_PHASE_DURATION);
                                 setAutoRefreshInterval(5000); // Normal refresh during day
+                                // Play day phase sound
+                                if (window.soundManager) {
+                                    window.soundManager.playGameEvent('PHASE_CHANGE', { phase: 'DAY' });
+                                }
                             }
                             if (isPlayerAlive) {
                                 loadVotingStatus();
@@ -313,6 +353,10 @@
                                 showNightPhase();
                                 startPhaseTimer(NIGHT_PHASE_DURATION);
                                 setAutoRefreshInterval(10000); // Slower refresh during night
+                                // Play night phase sound
+                                if (window.soundManager) {
+                                    window.soundManager.playGameEvent('PHASE_CHANGE', { phase: 'NIGHT' });
+                                }
                             }
                         }
                     });
@@ -320,6 +364,9 @@
                 .catch(error => {
                     console.error('Error loading game state:', error);
                 });
+            
+            // Also load action history
+            loadActionHistory();
         }
 
         function loadPlayersList() {
@@ -744,8 +791,17 @@
                         // Don't show notification - vote status will update automatically
                         // Don't disable interface for Mafia - they can change votes
                         loadMafiaTeamInfo(); // Refresh voting status
+                        // Play mafia action sound
+                        if (window.soundManager) {
+                            window.soundManager.playGameEvent('NIGHT_ACTION', { role: 'MAFIA' });
+                        }
                     } else if (currentPlayerRole === 'DETECTIVE' && actionType === 'INVESTIGATE') {
                         hasActedThisNight = true;
+                        
+                        // Play detective investigation sound
+                        if (window.soundManager) {
+                            window.soundManager.playGameEvent('NIGHT_ACTION', { role: 'DETECTIVE' });
+                        }
                         
                         // Show investigation result immediately (simulated for now)
                         // In a real implementation, this would come via WebSocket
@@ -760,6 +816,11 @@
                         setAutoRefreshInterval(15000);
                     } else {
                         hasActedThisNight = true;
+                        
+                        // Play doctor save sound for DOCTOR role
+                        if (window.soundManager && currentPlayerRole === 'DOCTOR') {
+                            window.soundManager.playGameEvent('NIGHT_ACTION', { role: 'DOCTOR' });
+                        }
                         
                         // Disable the action interface for non-Mafia roles
                         disableNightActionInterface();
@@ -776,6 +837,10 @@
             .catch(error => {
                 console.error('Error performing night action:', error);
                 showNotification('Error: ' + error.message, 'error');
+                // Play error sound
+                if (window.soundManager) {
+                    window.soundManager.playGameEvent('ERROR');
+                }
             });
         }
 
@@ -819,10 +884,22 @@
             let winnerHtml = '';
             if (winner === 'MAFIA') {
                 winnerHtml = '<h5 class="text-danger">Mafia Wins!</h5><p>The Mafia has successfully taken over the town.</p>';
+                // Play Mafia win sound (only once per game)
+                if (window.soundManager) {
+                    window.soundManager.playGameEvent('WIN_MAFIA');
+                }
             } else if (winner === 'CITIZENS') {
                 winnerHtml = '<h5 class="text-success">Citizens Win!</h5><p>All Mafia members have been eliminated!</p>';
+                // Play Town win sound (only once per game)
+                if (window.soundManager) {
+                    window.soundManager.playGameEvent('WIN_TOWN');
+                }
             } else {
                 winnerHtml = '<h5 class="text-info">Game Over!</h5><p>The game has ended.</p>';
+                // Play general game end sound
+                if (window.soundManager) {
+                    window.soundManager.playGameEvent('GAME_END');
+                }
             }
             
             // Load and display all players with their roles
@@ -897,6 +974,12 @@
                             document.getElementById('voteSelect').value = '';
                             loadVotingStatus();
                             loadGameState();
+                            // Play vote sound
+                            if (window.soundManager) {
+                                window.soundManager.playGameEvent('VOTE');
+                                // Temporarily mute elimination sounds since this player just voted
+                                window.soundManager.muteEliminationTemporarily(8000);
+                            }
                         } else {
                             return response.json().then(error => {
                                 throw new Error(error.message || 'Failed to vote');
@@ -906,6 +989,10 @@
                     .catch(error => {
                         console.error('Error voting:', error);
                         alert('Error: ' + error.message);
+                        // Play error sound
+                        if (window.soundManager) {
+                            window.soundManager.playGameEvent('ERROR');
+                        }
                     });
                 })
                 .catch(error => {
@@ -949,6 +1036,12 @@
                             alert('Successfully skipped vote');
                             loadVotingStatus();
                             loadGameState();
+                            // Play skip vote sound
+                            if (window.soundManager) {
+                                window.soundManager.playGameEvent('SKIP_VOTE');
+                                // Temporarily mute elimination sounds since this player just voted (skip)
+                                window.soundManager.muteEliminationTemporarily(8000);
+                            }
                         } else {
                             return response.json().then(error => {
                                 throw new Error(error.message || 'Failed to skip vote');
@@ -958,6 +1051,10 @@
                     .catch(error => {
                         console.error('Error skipping vote:', error);
                         alert('Error: ' + error.message);
+                        // Play error sound
+                        if (window.soundManager) {
+                            window.soundManager.playGameEvent('ERROR');
+                        }
                     });
                 })
                 .catch(error => {
@@ -1007,6 +1104,32 @@
 
         // Start with initial auto-refresh
         setAutoRefreshInterval(5000);
+
+        // Initialize WebSocket for real-time events
+        initializeWebSocket();
+
+        // Auto-refresh every 5 seconds
+        setInterval(loadGameState, 5000);
+        
+        // Initialize sound system
+        window.addEventListener('DOMContentLoaded', function() {
+            if (window.soundManager) {
+                // Update sound button state
+                const settings = window.soundManager.getSettings();
+                const icon = document.getElementById('soundToggleIcon');
+                const btn = document.getElementById('soundToggleBtn');
+                if (!settings.enabled) {
+                    icon.className = 'fas fa-volume-mute';
+                    btn.classList.remove('btn-outline-secondary');
+                    btn.classList.add('btn-outline-danger');
+                }
+                
+                // Play game start sound
+                setTimeout(() => {
+                    window.soundManager.playGameEvent('GAME_START');
+                }, 1000);
+            }
+        });
 
         // Auto-refresh every 5 seconds
         setInterval(loadGameState, 5000);
@@ -1075,6 +1198,15 @@
                 const seconds = timeLeft % 60;
                 timerText.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
                 
+                // Play timer warning sounds
+                if (window.soundManager) {
+                    if (timeLeft === 30) {
+                        window.soundManager.playGameEvent('TIMER_WARNING');
+                    } else if (timeLeft === 10) {
+                        window.soundManager.playGameEvent('TIMER_URGENT');
+                    }
+                }
+                
                 if (timeLeft <= 0) {
                     // Auto advance phase when timer expires
                     advancePhaseAutomatically();
@@ -1125,6 +1257,248 @@
                 clearInterval(autoRefreshInterval);
                 autoRefreshInterval = null;
             }
+        }
+
+        // Action History Functions
+        function loadActionHistory() {
+            fetch(`/api/history/game/${gameCode}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Failed to load action history');
+                    }
+                    return response.json();
+                })
+                .then(actions => {
+                    displayActionHistory(actions);
+                })
+                .catch(error => {
+                    console.error('Error loading action history:', error);
+                    document.getElementById('actionHistoryPanel').innerHTML = 
+                        '<p class="text-muted small">Unable to load action history</p>';
+                });
+        }
+
+        function displayActionHistory(actions) {
+            const panel = document.getElementById('actionHistoryPanel');
+            
+            if (!actions || actions.length === 0) {
+                panel.innerHTML = '<p class="text-muted small">No actions recorded yet</p>';
+                return;
+            }
+
+            // Sort actions by timestamp (most recent first)
+            actions.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+            // Take only the last 10 actions for the game view
+            const recentActions = actions.slice(0, 10);
+
+            let html = '<div class="action-history-items">';
+            
+            recentActions.forEach(action => {
+                const actionDiv = createActionHistoryItem(action);
+                html += actionDiv;
+            });
+
+            html += '</div>';
+            
+            if (actions.length > 10) {
+                html += `<div class="mt-2"><small class="text-muted">Showing latest 10 of ${actions.length} actions</small></div>`;
+            }
+
+            panel.innerHTML = html;
+        }
+
+        function createActionHistoryItem(action) {
+            const time = new Date(action.timestamp).toLocaleTimeString();
+            const actionIcon = getActionIcon(action.actionType);
+            const actionClass = getActionClass(action.actionType);
+            
+            return `
+                <div class="action-item mb-2 p-2 border rounded ${actionClass}">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div class="action-content">
+                            <small class="text-muted">${time} - Day ${action.day}</small>
+                            <div class="action-description">
+                                ${actionIcon} ${action.details || 'No details available'}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function getActionIcon(actionType) {
+            const icons = {
+                'GAME_START': '🎮',
+                'GAME_END': '🏁',
+                'PHASE_CHANGE': '🔄',
+                'VOTE': '🗳️',
+                'SKIP_VOTE': '⏭️',
+                'ELIMINATION': '💀',
+                'SYSTEM_EVENT': '⚙️'
+            };
+            return icons[actionType] || '📋';
+        }
+
+        function getActionClass(actionType) {
+            const classes = {
+                'GAME_START': 'border-success',
+                'GAME_END': 'border-warning',
+                'PHASE_CHANGE': 'border-info',
+                'VOTE': 'border-primary',
+                'SKIP_VOTE': 'border-secondary',
+                'ELIMINATION': 'border-danger',
+                'SYSTEM_EVENT': 'border-light'
+            };
+            return classes[actionType] || 'border-light';
+        }
+
+        // Sound Integration Functions
+        function toggleSound() {
+            const enabled = window.soundManager.toggle();
+            const icon = document.getElementById('soundToggleIcon');
+            const btn = document.getElementById('soundToggleBtn');
+            if (enabled) {
+                icon.className = 'fas fa-volume-up';
+                btn.classList.remove('btn-outline-danger');
+                btn.classList.add('btn-outline-secondary');
+            } else {
+                icon.className = 'fas fa-volume-mute';
+                btn.classList.remove('btn-outline-secondary');
+                btn.classList.add('btn-outline-danger');
+            }
+        }
+        
+        function initializeSoundSystem() {
+            // Update sound button state
+            const settings = window.soundManager.getSettings();
+            updateSoundButtonIcon(settings.enabled);
+            
+            // Play game start sound
+            window.soundManager.playGameEvent('GAME_START');
+        }
+        
+        function playPhaseChangeSound(newPhase) {
+            window.soundManager.playGameEvent('PHASE_CHANGE', { phase: newPhase });
+        }
+        
+        function playVoteSound(isSkip = false) {
+            if (isSkip) {
+                window.soundManager.playGameEvent('SKIP_VOTE');
+            } else {
+                window.soundManager.playGameEvent('VOTE');
+            }
+        }
+        
+        function playNightActionSound(role) {
+            window.soundManager.playGameEvent('NIGHT_ACTION', { role: role });
+        }
+        
+        function playEliminationSound() {
+            window.soundManager.playGameEvent('ELIMINATION');
+        }
+        
+        function playTimerSound(timeLeft) {
+            if (timeLeft === 30) {
+                window.soundManager.playGameEvent('TIMER_WARNING');
+            } else if (timeLeft === 10) {
+                window.soundManager.playGameEvent('TIMER_URGENT');
+            }
+        }
+        
+        function playGameEndSound(winner) {
+            if (winner === 'MAFIA') {
+                window.soundManager.playGameEvent('WIN_MAFIA');
+            } else {
+                window.soundManager.playGameEvent('WIN_TOWN');
+            }
+        }
+        
+        function playActionCompleteSound() {
+            window.soundManager.playGameEvent('ACTION_COMPLETE');
+        }
+        
+        function playErrorSound() {
+            window.soundManager.playGameEvent('ERROR');
+        }
+
+        // Initialize WebSocket for real-time events
+        function initializeWebSocket() {
+            const socket = new SockJS('/ws');
+            const stompClient = Stomp.over(socket);
+            
+            stompClient.connect({}, function(frame) {
+                console.log('Connected to WebSocket for real-time game events');
+                
+                // Subscribe to game events
+                stompClient.subscribe(`/topic/game/${gameCode}`, function(message) {
+                    const event = JSON.parse(message.body);
+                    handleGameEvent(event);
+                });
+                
+                // Subscribe to private messages  
+                stompClient.subscribe(`/user/queue/private`, function(message) {
+                    const event = JSON.parse(message.body);
+                    handlePrivateEvent(event);
+                });
+            }, function(error) {
+                console.error('WebSocket connection error:', error);
+                // Continue without WebSocket - game will still work via REST
+            });
+            
+            // Store client for potential cleanup
+            window.gameStompClient = stompClient;
+        }
+        
+        // Handle WebSocket game events
+        function handleGameEvent(event) {
+            console.log('Received game event:', event);
+            
+            switch(event.type) {
+                case 'PLAYER_DIED_LAST_NIGHT':
+                    if (event.payload && event.payload.target) {
+                        console.log('Player died last night:', event.payload.target);
+                        // Play night kill elimination sound
+                        if (window.soundManager) {
+                            window.soundManager.playGameEvent('ELIMINATION', {
+                                eliminatedPlayer: event.payload.target,
+                                isNightKill: true
+                            });
+                        }
+                    }
+                    break;
+                    
+                case 'PLAYER_ELIMINATED':
+                    if (event.payload && event.payload.target) {
+                        console.log('Player eliminated by voting:', event.payload.target);
+                        // Play day elimination sound
+                        if (window.soundManager) {
+                            window.soundManager.playGameEvent('ELIMINATION', {
+                                eliminatedPlayer: event.payload.target,
+                                isDayElimination: true,
+                                reason: event.payload.reason
+                            });
+                        }
+                    }
+                    break;
+                    
+                case 'PHASE_CHANGE':
+                    // Phase change sounds are already handled by the polling system
+                    break;
+                    
+                case 'VOTE_CAST':
+                    // Vote sounds are already handled by the vote buttons
+                    break;
+                    
+                default:
+                    console.log('Unhandled game event:', event.type);
+            }
+        }
+        
+        // Handle private WebSocket events
+        function handlePrivateEvent(event) {
+            console.log('Received private event:', event);
+            // Handle private messages like investigation results
         }
     </script>
 </body>

@@ -10,6 +10,18 @@ class GameManager {
         
         this.initializeWebSocket();
         this.initializeEventListeners();
+        
+        // Initialize sound manager once it's available
+        this.waitForSoundManager();
+    }
+    
+    waitForSoundManager() {
+        if (window.soundManager) {
+            this.soundManager = window.soundManager;
+        } else {
+            // Wait for sound manager to be initialized
+            setTimeout(() => this.waitForSoundManager(), 100);
+        }
     }
 
     initializeWebSocket() {
@@ -25,6 +37,10 @@ class GameManager {
             this.handlePlayerKilled(payload);
         });
         
+        this.gameWs.on('PLAYER_ELIMINATED', (payload) => {
+            this.handlePlayerEliminated(payload);
+        });
+        
         this.gameWs.on('PLAYER_SAVED', (payload) => {
             this.handlePlayerSaved(payload);
         });
@@ -38,6 +54,15 @@ class GameManager {
         this.gameWs.on('VOTE_CAST', (payload) => {
             this.handleVoteCast(payload);
         });
+        
+        // Game state changes
+        this.gameWs.on('GAME_START', (payload) => {
+            this.handleGameStart(payload);
+        });
+        
+        this.gameWs.on('GAME_END', (payload) => {
+            this.handleGameEnd(payload);
+        });
     }
 
     initializeEventListeners() {
@@ -46,12 +71,20 @@ class GameManager {
             const target = document.getElementById('voteTarget').value;
             if (target) {
                 this.gameWs.sendAction('VOTE', target);
+                // Play vote sound
+                if (this.soundManager) {
+                    this.soundManager.playGameEvent('VOTE');
+                }
             }
         });
 
         // Skip vote button
         document.getElementById('skipVoteButton').addEventListener('click', () => {
             this.gameWs.sendAction('SKIP_VOTE', null);
+            // Play skip vote sound
+            if (this.soundManager) {
+                this.soundManager.playGameEvent('SKIP_VOTE');
+            }
         });
 
         // Chat
@@ -62,6 +95,30 @@ class GameManager {
                 document.getElementById('chatInput').value = '';
             }
         });
+    }
+
+    handleGameStart(payload) {
+        this.playerRole = payload.role;
+        this.addChatMessage('System', `Game started! You are a ${payload.role}.`);
+        
+        // Play game start sound
+        if (this.soundManager) {
+            this.soundManager.playGameEvent('GAME_START');
+        }
+    }
+
+    handleGameEnd(payload) {
+        const winner = payload.winner;
+        this.addChatMessage('System', `Game Over! ${winner} wins!`);
+        
+        // Play appropriate win sound
+        if (this.soundManager) {
+            if (winner === 'MAFIA') {
+                this.soundManager.playGameEvent('WIN_MAFIA');
+            } else {
+                this.soundManager.playGameEvent('WIN_TOWN');
+            }
+        }
     }
 
     handlePhaseChange(payload) {
@@ -82,6 +139,11 @@ class GameManager {
         if (this.currentPhase === 'NIGHT') {
             this.updateNightActions();
         }
+        
+        // Play phase change sound
+        if (this.soundManager) {
+            this.soundManager.playGameEvent('PHASE_CHANGE', { phase: payload.phase });
+        }
     }
 
     handlePlayerKilled(payload) {
@@ -92,16 +154,34 @@ class GameManager {
         
         // Add to chat
         this.addChatMessage('System', `${payload.target} was killed during the night!`);
+        
+        // Play elimination sound with context
+        if (this.soundManager) {
+            this.soundManager.playGameEvent('ELIMINATION', { 
+                eliminatedPlayer: payload.target,
+                isNightKill: true 
+            });
+        }
     }
 
     handlePlayerSaved(payload) {
         // Add to chat (only visible to the doctor)
         this.addChatMessage('System', `You successfully saved ${payload.target}!`);
+        
+        // Play action complete sound
+        if (this.soundManager) {
+            this.soundManager.playGameEvent('ACTION_COMPLETE');
+        }
     }
 
     handleInvestigationResult(payload) {
         const result = payload.isDetective ? 'is a Detective' : 'is not a Detective';
         this.addChatMessage('System', `Investigation result: ${payload.target} ${result}`);
+        
+        // Play action complete sound
+        if (this.soundManager) {
+            this.soundManager.playGameEvent('ACTION_COMPLETE');
+        }
     }
 
     handleVoteCast(payload) {
@@ -113,6 +193,25 @@ class GameManager {
         
         // Update voting status
         this.updateVotingStatus();
+    }
+
+    handlePlayerEliminated(payload) {
+        const playerElement = document.querySelector(`[data-username="${payload.target}"]`);
+        if (playerElement) {
+            playerElement.classList.add('dead');
+        }
+        
+        // Add to chat
+        this.addChatMessage('System', `${payload.target} was eliminated by voting!`);
+        
+        // Play elimination sound with context
+        if (this.soundManager) {
+            this.soundManager.playGameEvent('ELIMINATION', { 
+                eliminatedPlayer: payload.target,
+                isDayElimination: true,
+                votedBy: payload.votedBy || [] // List of players who voted for this target
+            });
+        }
     }
 
     updateNightActions() {
@@ -143,6 +242,10 @@ class GameManager {
         button.onclick = () => {
             if (select.value) {
                 this.gameWs.sendAction('KILL', select.value);
+                // Play mafia action sound
+                if (this.soundManager) {
+                    this.soundManager.playGameEvent('NIGHT_ACTION', { role: 'MAFIA' });
+                }
             }
         };
         
@@ -161,6 +264,10 @@ class GameManager {
         button.onclick = () => {
             if (select.value) {
                 this.gameWs.sendAction('SAVE', select.value);
+                // Play doctor action sound
+                if (this.soundManager) {
+                    this.soundManager.playGameEvent('NIGHT_ACTION', { role: 'DOCTOR' });
+                }
             }
         };
         
@@ -179,6 +286,10 @@ class GameManager {
         investigateButton.onclick = () => {
             if (select.value) {
                 this.gameWs.sendAction('INVESTIGATE', select.value);
+                // Play detective action sound
+                if (this.soundManager) {
+                    this.soundManager.playGameEvent('NIGHT_ACTION', { role: 'DETECTIVE' });
+                }
             }
         };
 
@@ -188,6 +299,10 @@ class GameManager {
         killButton.onclick = () => {
             if (select.value) {
                 this.gameWs.sendAction('KILL', select.value);
+                // Play detective kill action sound
+                if (this.soundManager) {
+                    this.soundManager.playGameEvent('NIGHT_ACTION', { role: 'DETECTIVE' });
+                }
             }
         };
         
