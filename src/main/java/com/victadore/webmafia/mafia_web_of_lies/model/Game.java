@@ -2,6 +2,7 @@ package com.victadore.webmafia.mafia_web_of_lies.model;
 
 import java.util.List;
 import java.util.*;
+import java.time.LocalDateTime;
 
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
@@ -44,6 +45,17 @@ public class Game {
     @Column(nullable = false)
     private int currentPhase;
 
+    // Timer-related fields for consistent timing across all players
+    @Column(name = "phase_start_time")
+    private LocalDateTime phaseStartTime;
+    
+    @Min(value = 0, message = "Phase duration cannot be negative")
+    @Column(name = "phase_duration_seconds")
+    private Integer phaseDurationSeconds;
+    
+    @Column(name = "timer_enabled", nullable = false, columnDefinition = "boolean default true")
+    private Boolean timerEnabled = true;
+
     @ElementCollection
     private Map<Long, Integer> votes = new HashMap<>();
 
@@ -83,6 +95,24 @@ public class Game {
     
     @Size(max = 20, message = "Winner name cannot exceed 20 characters")
     private String winner;
+    
+    // Helper method to get remaining time in seconds
+    public long getRemainingTimeSeconds() {
+        if (phaseStartTime == null || phaseDurationSeconds == null || !Boolean.TRUE.equals(timerEnabled)) {
+            return 0;
+        }
+        
+        LocalDateTime now = LocalDateTime.now();
+        long elapsedSeconds = java.time.Duration.between(phaseStartTime, now).getSeconds();
+        long remainingSeconds = phaseDurationSeconds - elapsedSeconds;
+        
+        return Math.max(0, remainingSeconds);
+    }
+    
+    // Helper method to check if timer has expired
+    public boolean isTimerExpired() {
+        return getRemainingTimeSeconds() <= 0 && Boolean.TRUE.equals(timerEnabled);
+    }
     
     // Custom validation method
     @AssertTrue(message = "Maximum players must be greater than or equal to minimum players")

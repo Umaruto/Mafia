@@ -7,18 +7,23 @@ import com.victadore.webmafia.mafia_web_of_lies.exception.GameException;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.context.event.EventListener;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.logging.Logger;
 
 @Service
 @Transactional
 public class GameLogicService {
+    private static final Logger logger = Logger.getLogger(GameLogicService.class.getName());
+    
     private final GameService gameService;
     private final PlayerService playerService;
     private final GameRepository gameRepository;
     private final WebSocketService webSocketService;
     private final ActionHistoryService actionHistoryService;
     private final PlayerStatisticsService playerStatisticsService;
+    private PhaseTimerService phaseTimerService; // Will be injected later to avoid circular dependency
 
     public GameLogicService(GameService gameService, PlayerService playerService, GameRepository gameRepository, WebSocketService webSocketService, ActionHistoryService actionHistoryService, @Lazy PlayerStatisticsService playerStatisticsService) {
         this.gameService = gameService;
@@ -27,6 +32,24 @@ public class GameLogicService {
         this.webSocketService = webSocketService;
         this.actionHistoryService = actionHistoryService;
         this.playerStatisticsService = playerStatisticsService;
+    }
+    
+    // Setter injection to avoid circular dependency
+    public void setPhaseTimerService(PhaseTimerService phaseTimerService) {
+        this.phaseTimerService = phaseTimerService;
+    }
+    
+    /**
+     * Event listener for timer expiration events
+     */
+    @EventListener
+    public void handleTimerExpiration(PhaseTimerService.TimerExpiredEvent event) {
+        try {
+            logger.info("Handling timer expiration for game: " + event.getGameCode());
+            advancePhase(event.getGameCode());
+        } catch (Exception e) {
+            logger.severe("Failed to advance phase for expired timer in game " + event.getGameCode() + ": " + e.getMessage());
+        }
     }
 
     // Start a new day phase
@@ -39,6 +62,11 @@ public class GameLogicService {
         game.setCurrentPhase(0); // 0 for day
         game.setCurrentDay(game.getCurrentDay() + 1);
         Game savedGame = gameRepository.save(game);
+        
+        // Start day phase timer
+        if (phaseTimerService != null) {
+            phaseTimerService.startPhaseTimer(gameCode, 0);
+        }
         
         // Record phase transition
         actionHistoryService.recordPhaseTransition(savedGame.getId(), "NIGHT", "DAY");
@@ -63,6 +91,11 @@ public class GameLogicService {
 
         game.setCurrentPhase(1); // 1 for night
         Game savedGame = gameRepository.save(game);
+        
+        // Start night phase timer
+        if (phaseTimerService != null) {
+            phaseTimerService.startPhaseTimer(gameCode, 1);
+        }
         
         // Record phase transition
         actionHistoryService.recordPhaseTransition(savedGame.getId(), "DAY", "NIGHT");
@@ -641,6 +674,11 @@ public class GameLogicService {
             game.setDoctorTarget(null);
             game.getMafiaVotes().clear();
             
+            // Start night phase timer
+            if (phaseTimerService != null) {
+                phaseTimerService.startPhaseTimer(gameCode, 1);
+            }
+            
             // Record phase transition
             actionHistoryService.recordPhaseTransition(game.getId(), "DAY", "NIGHT");
             
@@ -661,12 +699,22 @@ public class GameLogicService {
             game.setDoctorTarget(null);
             game.getMafiaVotes().clear();
             
+            // Start day phase timer
+            if (phaseTimerService != null) {
+                phaseTimerService.startPhaseTimer(gameCode, 0);
+            }
+            
             // Record phase transition
             actionHistoryService.recordPhaseTransition(game.getId(), "NIGHT", "DAY");
             
             // Check win conditions
             GameState newState = checkWinConditions(game);
             if (newState == GameState.FINISHED) {
+                // Stop timer when game ends
+                if (phaseTimerService != null) {
+                    phaseTimerService.stopTimer(gameCode);
+                }
+                
                 // Game is already saved in checkWinConditions, just broadcast game end
                 webSocketService.broadcastGameUpdate(gameCode, 
                     new GameEvent("GAME_ENDED", gameCode, Map.of(
@@ -778,6 +826,11 @@ public class GameLogicService {
                 // Check win conditions after elimination
                 GameState newState = checkWinConditions(game);
                 if (newState == GameState.FINISHED) {
+                    // Stop timer when game ends
+                    if (phaseTimerService != null) {
+                        phaseTimerService.stopTimer(game.getGameCode());
+                    }
+                    
                     // Game is already saved in checkWinConditions, just clear votes and broadcast
                     game.getVotes().clear();
                     game.getPlayersWhoVoted().clear();
@@ -834,6 +887,12 @@ public class GameLogicService {
             
             // Automatically transition to night phase after voting is complete
             game.setCurrentPhase(1); // Night phase
+            
+            // Start night phase timer
+            if (phaseTimerService != null) {
+                phaseTimerService.startPhaseTimer(game.getGameCode(), 1);
+            }
+            
             webSocketService.broadcastGameUpdate(game.getGameCode(), 
                 new GameEvent("PHASE_CHANGE", game.getGameCode(), Map.of(
                     "phase", "NIGHT",

@@ -515,7 +515,7 @@
                                 currentPhase = 'DAY';
                                 hasActedThisNight = false;
                                 showDayPhase();
-                                startPhaseTimer(DAY_PHASE_DURATION);
+                                startPhaseTimer();
                                 setAutoRefreshInterval(5000); // Normal refresh during day
                                 // Play day phase sound
                                 if (window.soundManager) {
@@ -532,7 +532,7 @@
                                 currentPhase = 'NIGHT';
                                 hasActedThisNight = false;
                                 showNightPhase();
-                                startPhaseTimer(NIGHT_PHASE_DURATION);
+                                startPhaseTimer();
                                 setAutoRefreshInterval(10000); // Slower refresh during night
                                 // Play night phase sound
                                 if (window.soundManager) {
@@ -1509,40 +1509,61 @@
                 });
         }
 
-        function startPhaseTimer(duration) {
+        function startPhaseTimer() {
             clearTimer();
             
-            const timerElement = document.getElementById('phaseTimer');
-            const timerText = document.getElementById('timerText');
-            
-            timerElement.style.display = 'block';
-            let timeLeft = duration;
-            
-            function updateTimer() {
-                const minutes = Math.floor(timeLeft / 60);
-                const seconds = timeLeft % 60;
-                timerText.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-                
-                // Play timer warning sounds
-                if (window.soundManager) {
-                    if (timeLeft === 30) {
-                        window.soundManager.playGameEvent('TIMER_WARNING');
-                    } else if (timeLeft === 10) {
-                        window.soundManager.playGameEvent('TIMER_URGENT');
+            // Get timer status from server
+            fetch(`/api/game-logic/${gameCode}/timer-status`)
+                .then(response => response.json())
+                .then(timerStatus => {
+                    if (timerStatus.active) {
+                        const timerElement = document.getElementById('phaseTimer');
+                        const timerText = document.getElementById('timerText');
+                        
+                        timerElement.style.display = 'block';
+                        
+                        function updateTimer() {
+                            // Get fresh timer status from server
+                            fetch(`/api/game-logic/${gameCode}/timer-status`)
+                                .then(response => response.json())
+                                .then(status => {
+                                    if (!status.active) {
+                                        clearTimer();
+                                        return;
+                                    }
+                                    
+                                    const timeLeft = status.remainingSeconds;
+                                    const minutes = Math.floor(timeLeft / 60);
+                                    const seconds = timeLeft % 60;
+                                    timerText.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                                    
+                                    // Play timer warning sounds
+                                    if (window.soundManager) {
+                                        if (timeLeft === 30) {
+                                            window.soundManager.playGameEvent('TIMER_WARNING');
+                                        } else if (timeLeft === 10) {
+                                            window.soundManager.playGameEvent('TIMER_URGENT');
+                                        }
+                                    }
+                                    
+                                    if (timeLeft <= 0) {
+                                        clearTimer();
+                                        // Timer expired, refresh game state to get updates
+                                        setTimeout(() => loadGameState(), 1000);
+                                    }
+                                })
+                                .catch(error => {
+                                    console.error('Error fetching timer status:', error);
+                                });
+                        }
+                        
+                        updateTimer(); // Update immediately
+                        phaseTimer = setInterval(updateTimer, 1000);
                     }
-                }
-                
-                if (timeLeft <= 0) {
-                    // Auto advance phase when timer expires
-                    advancePhaseAutomatically();
-                    clearTimer();
-                } else {
-                    timeLeft--;
-                }
-            }
-            
-            updateTimer(); // Update immediately
-            phaseTimer = setInterval(updateTimer, 1000);
+                })
+                .catch(error => {
+                    console.error('Error starting timer:', error);
+                });
         }
 
         function clearTimer() {

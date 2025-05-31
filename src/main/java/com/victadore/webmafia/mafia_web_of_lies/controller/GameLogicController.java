@@ -4,6 +4,7 @@ import com.victadore.webmafia.mafia_web_of_lies.model.Game;
 import com.victadore.webmafia.mafia_web_of_lies.service.GameLogicService;
 import com.victadore.webmafia.mafia_web_of_lies.service.GameService;
 import com.victadore.webmafia.mafia_web_of_lies.service.ValidationService;
+import com.victadore.webmafia.mafia_web_of_lies.service.PhaseTimerService;
 import com.victadore.webmafia.mafia_web_of_lies.exception.ValidationException;
 
 import jakarta.validation.Valid;
@@ -22,11 +23,13 @@ public class GameLogicController {
     private final GameLogicService gameLogicService;
     private final GameService gameService;
     private final ValidationService validationService;
+    private final PhaseTimerService phaseTimerService;
 
-    public GameLogicController(GameLogicService gameLogicService, GameService gameService, ValidationService validationService) {
+    public GameLogicController(GameLogicService gameLogicService, GameService gameService, ValidationService validationService, PhaseTimerService phaseTimerService) {
         this.gameLogicService = gameLogicService;
         this.gameService = gameService;
         this.validationService = validationService;
+        this.phaseTimerService = phaseTimerService;
     }
 
     @PostMapping("/{gameCode}/day")
@@ -55,6 +58,14 @@ public class GameLogicController {
         } catch (Exception e) {
             return ResponseEntity.badRequest().build();
         }
+    }
+
+    @GetMapping("/{gameCode}/timer-status")
+    public ResponseEntity<PhaseTimerService.TimerStatus> getTimerStatus(
+            @PathVariable @Pattern(regexp = "^[A-Z0-9]{6}$", message = "Invalid game code format") String gameCode) {
+        validationService.validateGameCode(gameCode);
+        PhaseTimerService.TimerStatus status = phaseTimerService.getTimerStatus(gameCode);
+        return ResponseEntity.ok(status);
     }
 
     @PostMapping("/{gameCode}/night-action")
