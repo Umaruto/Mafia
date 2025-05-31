@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Elimination Animation Test</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        /* Global Theme Variables */
+        :root {
+            --bg-primary: #f8f9fa;
+            --bg-secondary: #ffffff;
+            --bg-card: #ffffff;
+            --text-primary: #333333;
+            --text-secondary: #6c757d;
+            --border-color: #dee2e6;
+            --shadow-color: rgba(0,0,0,0.1);
+            --accent-color: #007bff;
+            --chat-bg: #ffffff;
+            --header-bg: linear-gradient(135deg, #343a40, #495057);
+        }
+
+        /* Night Mode Theme */
+        body.night-mode {
+            --bg-primary: #1a1a1a;
+            --bg-secondary: #2d2d2d;
+            --bg-card: #333333;
+            --text-primary: #ffffff;
+            --text-secondary: #cccccc;
+            --border-color: #444444;
+            --shadow-color: rgba(0,0,0,0.3);
+            --accent-color: #4a90e2;
+            --chat-bg: #2d2d2d;
+            --header-bg: linear-gradient(135deg, #1a1a1a, #2d2d2d);
+        }
+
+        body {
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            transition: all 0.3s ease;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+
+        .test-card {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 4px 15px var(--shadow-color);
+            border: 1px solid var(--border-color);
+            margin-bottom: 20px;
+        }
+
+        .btn-test {
+            margin: 10px;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .btn-test:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+
+        /* Elimination Animation Styles */
+        .elimination-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(5px);
+        }
+
+        .elimination-overlay.show {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .elimination-card {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            transform: scale(0.5) rotateY(90deg);
+            transition: all 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            max-width: 300px;
+            width: 90%;
+        }
+
+        .elimination-overlay.show .elimination-card {
+            transform: scale(1) rotateY(0deg);
+        }
+
+        .elimination-card h3 {
+            color: #dc3545;
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+
+        .elimination-card .role-icon {
+            font-size: 4rem;
+            margin: 20px 0;
+            animation: roleIconSpin 0.8s ease-out 0.3s both;
+        }
+
+        .elimination-card .player-name {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .elimination-card .role-name {
+            font-size: 1.2rem;
+            color: #6c757d;
+        }
+
+        @keyframes roleIconSpin {
+            0% {
+                transform: scale(0) rotate(0deg);
+                opacity: 0;
+            }
+            50% {
+                transform: scale(1.5) rotate(180deg);
+                opacity: 0.8;
+            }
+            100% {
+                transform: scale(1) rotate(360deg);
+                opacity: 1;
+            }
+        }
+
+        .theme-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+
+        .demo-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .role-demo {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .role-demo:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px var(--shadow-color);
+        }
+
+        .role-icon-demo {
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Theme Toggle -->
+    <button class="btn btn-outline-secondary theme-toggle" onclick="toggleTheme()">
+        <i class="fas fa-moon" id="themeIcon"></i>
+    </button>
+
+    <!-- Elimination Animation Overlay -->
+    <div id="eliminationOverlay" class="elimination-overlay">
+        <div class="elimination-card">
+            <h3>Player Eliminated!</h3>
+            <div class="role-icon" id="eliminationRoleIcon">💀</div>
+            <div class="player-name" id="eliminationPlayerName"></div>
+            <div class="role-name" id="eliminationRoleName"></div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="test-card">
+            <h1 class="text-center mb-4">
+                <i class="fas fa-skull-crossbones"></i>
+                Elimination Animation Test
+            </h1>
+            <p class="text-center text-muted">
+                Test the new elimination animation feature for the Mafia game.
+                Click any role button below to see the elimination animation in action.
+            </p>
+        </div>
+
+        <div class="test-card">
+            <h3><i class="fas fa-play-circle"></i> Test Elimination Animations</h3>
+            <p>Click on any role below to trigger the elimination animation:</p>
+            
+            <div class="demo-grid">
+                <div class="role-demo">
+                    <div class="role-icon-demo">🔫</div>
+                    <h5>Mafia</h5>
+                    <button class="btn btn-danger btn-test" onclick="showElimination('Tony Soprano', 'MAFIA')">
+                        Eliminate Mafia
+                    </button>
+                </div>
+
+                <div class="role-demo">
+                    <div class="role-icon-demo">🔍</div>
+                    <h5>Detective</h5>
+                    <button class="btn btn-info btn-test" onclick="showElimination('Sherlock Holmes', 'DETECTIVE')">
+                        Eliminate Detective
+                    </button>
+                </div>
+
+                <div class="role-demo">
+                    <div class="role-icon-demo">⚕️</div>
+                    <h5>Doctor</h5>
+                    <button class="btn btn-success btn-test" onclick="showElimination('Dr. Watson', 'DOCTOR')">
+                        Eliminate Doctor
+                    </button>
+                </div>
+
+                <div class="role-demo">
+                    <div class="role-icon-demo">👤</div>
+                    <h5>Civilian</h5>
+                    <button class="btn btn-secondary btn-test" onclick="showElimination('John Doe', 'CIVILIAN')">
+                        Eliminate Civilian
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="test-card">
+            <h3><i class="fas fa-palette"></i> Theme Testing</h3>
+            <p>Toggle between day and night themes using the button in the top-right corner.</p>
+            <ul>
+                <li><strong>Day Theme:</strong> Light colors, bright interface</li>
+                <li><strong>Night Theme:</strong> Dark colors, muted interface</li>
+            </ul>
+        </div>
+
+        <div class="test-card">
+            <h3><i class="fas fa-info-circle"></i> Features Demonstrated</h3>
+            <ul>
+                <li><strong>Elimination Animation:</strong> 3D card flip with role reveal</li>
+                <li><strong>Role Icons:</strong> Unique emoji for each role</li>
+                <li><strong>Backdrop Blur:</strong> Background blur effect during animation</li>
+                <li><strong>Auto-Dismiss:</strong> Animation disappears after 3 seconds</li>
+                <li><strong>Theme System:</strong> CSS variables for consistent theming</li>
+                <li><strong>Responsive Design:</strong> Works on all screen sizes</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        let isNightMode = false;
+
+        function toggleTheme() {
+            const body = document.body;
+            const icon = document.getElementById('themeIcon');
+            
+            isNightMode = !isNightMode;
+            
+            if (isNightMode) {
+                body.classList.add('night-mode');
+                icon.className = 'fas fa-sun';
+            } else {
+                body.classList.remove('night-mode');
+                icon.className = 'fas fa-moon';
+            }
+        }
+
+        function showElimination(playerName, role) {
+            const overlay = document.getElementById('eliminationOverlay');
+            const playerNameEl = document.getElementById('eliminationPlayerName');
+            const roleNameEl = document.getElementById('eliminationRoleName');
+            const roleIconEl = document.getElementById('eliminationRoleIcon');
+            
+            // Set content
+            playerNameEl.textContent = playerName;
+            roleNameEl.textContent = role;
+            
+            // Set role icon
+            const roleIcons = {
+                'MAFIA': '🔫',
+                'DETECTIVE': '🔍',
+                'DOCTOR': '⚕️',
+                'CIVILIAN': '👤'
+            };
+            roleIconEl.textContent = roleIcons[role] || '💀';
+            
+            // Show overlay
+            overlay.classList.add('show');
+            
+            // Hide after 3 seconds
+            setTimeout(() => {
+                overlay.classList.remove('show');
+            }, 3000);
+        }
+
+        // Demo auto-play
+        let demoIndex = 0;
+        const demoRoles = [
+            { name: 'Demo Player 1', role: 'MAFIA' },
+            { name: 'Demo Player 2', role: 'DETECTIVE' },
+            { name: 'Demo Player 3', role: 'DOCTOR' },
+            { name: 'Demo Player 4', role: 'CIVILIAN' }
+        ];
+
+        function startDemo() {
+            if (demoIndex < demoRoles.length) {
+                const demo = demoRoles[demoIndex];
+                showElimination(demo.name, demo.role);
+                demoIndex++;
+                
+                setTimeout(startDemo, 4000); // Wait 4 seconds between demos
+            } else {
+                demoIndex = 0; // Reset for next cycle
+            }
+        }
+
+        // Auto-start demo after 2 seconds
+        setTimeout(() => {
+            console.log('Starting elimination animation demo...');
+            startDemo();
+        }, 2000);
+    </script>
+</body>
+</html> 

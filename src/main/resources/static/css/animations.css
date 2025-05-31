@@ -185,6 +185,51 @@
 }
 
 /* ==========================================================================
+   ELIMINATION CARD ANIMATIONS
+   ========================================================================== */
+
+@keyframes eliminationCardFlip {
+    0% {
+        transform: scale(0.5) rotateY(90deg);
+        opacity: 0;
+    }
+    50% {
+        transform: scale(1.1) rotateY(45deg);
+        opacity: 0.8;
+    }
+    100% {
+        transform: scale(1) rotateY(0deg);
+        opacity: 1;
+    }
+}
+
+@keyframes eliminationCardPulse {
+    0%, 100% {
+        transform: scale(1);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    }
+    50% {
+        transform: scale(1.05);
+        box-shadow: 0 25px 50px rgba(0, 0, 0, 0.4);
+    }
+}
+
+@keyframes eliminationRoleIcon {
+    0% {
+        transform: scale(0) rotate(0deg);
+        opacity: 0;
+    }
+    50% {
+        transform: scale(1.5) rotate(180deg);
+        opacity: 0.8;
+    }
+    100% {
+        transform: scale(1) rotate(360deg);
+        opacity: 1;
+    }
+}
+
+/* ==========================================================================
    PHASE TRANSITION ANIMATIONS
    ========================================================================== */
 
@@ -200,9 +245,8 @@
     left: -100%;
     width: 100%;
     height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.8), transparent);
-    transition: left 0.8s ease-in-out;
-    z-index: 1;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+    transition: left 0.8s ease;
 }
 
 .phase-transition.transitioning::before {
@@ -210,75 +254,143 @@
 }
 
 .day-phase {
-    background: linear-gradient(135deg, #ffeaa7 0%, #fab1a0 100%);
-    animation: fadeIn 1s ease-in-out;
+    animation: dayPhaseTransition 1s ease-out;
 }
 
 .night-phase {
-    background: linear-gradient(135deg, #2d3436 0%, #636e72 100%);
-    color: white;
-    animation: fadeIn 1s ease-in-out;
+    animation: nightPhaseTransition 1s ease-out;
+}
+
+@keyframes dayPhaseTransition {
+    from {
+        filter: brightness(0.3) contrast(1.2);
+    }
+    to {
+        filter: brightness(1) contrast(1);
+    }
+}
+
+@keyframes nightPhaseTransition {
+    from {
+        filter: brightness(1) contrast(1);
+    }
+    to {
+        filter: brightness(0.3) contrast(1.2);
+    }
 }
 
 .day-phase-enter {
-    animation: slideInDown 1.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    animation: fadeIn 0.8s ease-out;
 }
 
 .night-phase-enter {
-    animation: slideInUp 1.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    animation: slideInUp 0.8s ease-out;
 }
 
 /* ==========================================================================
-   PLAYER STATE ANIMATIONS
+   PLAYER ANIMATIONS
    ========================================================================== */
 
 .player-item {
-    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    transition: all 0.3s ease;
     position: relative;
     overflow: hidden;
 }
 
 .player-item:hover {
     transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
 
 .player-alive {
-    animation: fadeIn 0.6s ease-out;
+    border-left: 4px solid #28a745;
 }
 
 .player-dead {
-    animation: shake 0.8s ease-in-out;
-    background-color: #f8d7da !important;
-    position: relative;
-    opacity: 0.7;
+    border-left: 4px solid #dc3545;
+    animation: playerDeathAnimation 1s ease-out;
+}
+
+@keyframes playerDeathAnimation {
+    0% {
+        background-color: var(--bg-secondary);
+        opacity: 1;
+    }
+    50% {
+        background-color: #ffebee;
+        opacity: 0.8;
+        transform: scale(1.02);
+    }
+    100% {
+        background-color: #f8d7da;
+        opacity: 0.7;
+        transform: scale(1);
+    }
 }
 
 .player-dead::after {
-    content: '';
+    content: '💀';
     position: absolute;
+    right: 10px;
     top: 50%;
-    left: 0;
-    right: 0;
-    height: 2px;
-    background-color: #dc3545;
     transform: translateY(-50%);
-    animation: slideInLeft 0.8s ease-out 0.5s both;
+    opacity: 0.7;
+    font-size: 1.2em;
+    animation: skullAppear 0.5s ease-out 0.5s both;
+}
+
+@keyframes skullAppear {
+    from {
+        opacity: 0;
+        transform: translateY(-50%) scale(0);
+    }
+    to {
+        opacity: 0.7;
+        transform: translateY(-50%) scale(1);
+    }
 }
 
 .player-eliminated {
-    animation: bounce 1s ease-out, pulse 0.5s ease-out 1s;
+    animation: eliminationShake 0.6s ease-out;
 }
 
 .player-saved {
-    animation: glow 1.5s ease-in-out, pulse 0.8s ease-out 0.5s;
-    border-color: #28a745 !important;
+    animation: saveGlow 1s ease-out;
+}
+
+@keyframes saveGlow {
+    0%, 100% {
+        box-shadow: 0 0 0 rgba(40, 167, 69, 0);
+    }
+    50% {
+        box-shadow: 0 0 20px rgba(40, 167, 69, 0.6);
+    }
 }
 
 .player-targeted {
-    animation: heartbeat 1.5s ease-in-out infinite;
-    border-color: #dc3545 !important;
-    background-color: rgba(220, 53, 69, 0.1);
+    animation: targetPulse 2s infinite;
+}
+
+@keyframes targetPulse {
+    0%, 100% {
+        border-color: var(--border-color);
+    }
+    50% {
+        border-color: #dc3545;
+        box-shadow: 0 0 10px rgba(220, 53, 69, 0.5);
+    }
+}
+
+@keyframes eliminationShake {
+    0%, 100% {
+        transform: translateX(0);
+    }
+    10%, 30%, 50%, 70%, 90% {
+        transform: translateX(-8px);
+    }
+    20%, 40%, 60%, 80% {
+        transform: translateX(8px);
+    }
 }
 
 /* ==========================================================================
@@ -286,28 +398,52 @@
    ========================================================================== */
 
 .vote-cast {
-    animation: zoomIn 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    animation: voteSubmit 0.8s ease-out;
+}
+
+@keyframes voteSubmit {
+    0% {
+        transform: scale(1);
+        background-color: var(--bg-secondary);
+    }
+    50% {
+        transform: scale(1.05);
+        background-color: #e3f2fd;
+    }
+    100% {
+        transform: scale(1);
+        background-color: var(--bg-secondary);
+    }
 }
 
 .vote-status-item {
     transition: all 0.3s ease;
-    position: relative;
+    animation: fadeIn 0.5s ease-out;
 }
 
 .vote-status-item.voted {
-    animation: slideInRight 0.5s ease-out;
-    background: linear-gradient(90deg, #d4edda, #ffffff);
     border-left: 4px solid #28a745;
+    background-color: rgba(40, 167, 69, 0.1);
 }
 
 .vote-status-item.not-voted {
-    animation: pulse 2s infinite;
     border-left: 4px solid #ffc107;
+    background-color: rgba(255, 193, 7, 0.1);
 }
 
 .voting-progress {
-    position: relative;
-    overflow: hidden;
+    animation: progressBar 0.5s ease-out;
+}
+
+@keyframes progressBar {
+    from {
+        width: 0%;
+        opacity: 0;
+    }
+    to {
+        width: 100%;
+        opacity: 1;
+    }
 }
 
 .voting-progress::before {
@@ -316,56 +452,84 @@
     top: 0;
     left: 0;
     height: 100%;
-    background: linear-gradient(90deg, #28a745, #20c997);
-    transition: width 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    z-index: -1;
+    width: 100%;
+    background: linear-gradient(90deg, 
+        transparent, 
+        rgba(255,255,255,0.4), 
+        transparent);
+    animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+    0% {
+        transform: translateX(-100%);
+    }
+    100% {
+        transform: translateX(100%);
+    }
 }
 
 /* ==========================================================================
-   ACTION ANIMATIONS
+   BUTTON ANIMATIONS
    ========================================================================== */
 
 .action-button {
-    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
     position: relative;
     overflow: hidden;
+    transition: all 0.3s ease;
 }
 
 .action-button::before {
     content: '';
     position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 0;
-    height: 0;
-    background: rgba(255,255,255,0.3);
-    border-radius: 50%;
-    transform: translate(-50%, -50%);
-    transition: width 0.3s ease, height 0.3s ease;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+    transition: left 0.5s ease;
 }
 
 .action-button:hover::before {
-    width: 300px;
-    height: 300px;
+    left: 100%;
 }
 
 .action-button:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
 }
 
 .action-button:active {
-    transform: translateY(-1px);
-    animation: pulse 0.3s ease-out;
+    transform: translateY(0);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
 }
 
 .action-successful {
-    animation: bounce 0.8s ease-out, glow 1s ease-in-out 0.8s;
+    animation: actionSuccess 0.8s ease-out;
+}
+
+@keyframes actionSuccess {
+    0%, 100% {
+        background-color: var(--accent-color);
+    }
+    50% {
+        background-color: #28a745;
+        transform: scale(1.05);
+    }
 }
 
 .action-failed {
-    animation: shake 0.5s ease-in-out;
-    border-color: #dc3545 !important;
+    animation: actionFailed 0.8s ease-out;
+}
+
+@keyframes actionFailed {
+    0%, 100% {
+        background-color: var(--accent-color);
+    }
+    50% {
+        background-color: #dc3545;
+        transform: scale(1.05);
+    }
 }
 
 /* ==========================================================================
@@ -373,30 +537,61 @@
    ========================================================================== */
 
 .notification {
-    animation: slideInDown 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    animation: notificationSlide 0.5s ease-out;
     position: relative;
     overflow: hidden;
 }
 
+@keyframes notificationSlide {
+    from {
+        transform: translateY(-50px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
 .notification.success {
-    background: linear-gradient(135deg, #d4edda, #c3e6cb);
-    border-left: 5px solid #28a745;
+    border-left: 4px solid #28a745;
+    animation: notificationSlide 0.5s ease-out, successGlow 2s ease-out;
 }
 
 .notification.error {
-    background: linear-gradient(135deg, #f8d7da, #f5c6cb);
-    border-left: 5px solid #dc3545;
-    animation: slideInDown 0.6s ease-out, shake 0.5s ease-in-out 0.6s;
+    border-left: 4px solid #dc3545;
+    animation: notificationSlide 0.5s ease-out, errorShake 0.5s ease-out;
+}
+
+@keyframes successGlow {
+    0%, 100% {
+        box-shadow: 0 0 0 rgba(40, 167, 69, 0);
+    }
+    50% {
+        box-shadow: 0 0 15px rgba(40, 167, 69, 0.3);
+    }
+}
+
+@keyframes errorShake {
+    0%, 100% {
+        transform: translateX(0);
+    }
+    25% {
+        transform: translateX(-5px);
+    }
+    75% {
+        transform: translateX(5px);
+    }
 }
 
 .notification.warning {
-    background: linear-gradient(135deg, #fff3cd, #ffeaa7);
-    border-left: 5px solid #ffc107;
+    border-left: 4px solid #ffc107;
+    animation: notificationSlide 0.5s ease-out;
 }
 
 .notification.info {
-    background: linear-gradient(135deg, #d1ecf1, #bee5eb);
-    border-left: 5px solid #17a2b8;
+    border-left: 4px solid #17a2b8;
+    animation: notificationSlide 0.5s ease-out;
 }
 
 /* ==========================================================================
@@ -404,28 +599,43 @@
    ========================================================================== */
 
 .role-reveal {
-    animation: flipIn 1.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    animation: roleReveal 1s ease-out;
     position: relative;
 }
 
+@keyframes roleReveal {
+    0% {
+        opacity: 0;
+        transform: scale(0.8) rotateX(90deg);
+    }
+    50% {
+        opacity: 0.8;
+        transform: scale(1.1) rotateX(45deg);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1) rotateX(0deg);
+    }
+}
+
 .role-mafia {
-    background: linear-gradient(135deg, #ff7675, #fd79a8);
-    color: white;
+    color: #dc3545;
+    text-shadow: 0 0 10px rgba(220, 53, 69, 0.5);
 }
 
 .role-detective {
-    background: linear-gradient(135deg, #74b9ff, #0984e3);
-    color: white;
+    color: #17a2b8;
+    text-shadow: 0 0 10px rgba(23, 162, 184, 0.5);
 }
 
 .role-doctor {
-    background: linear-gradient(135deg, #00b894, #00cec9);
-    color: white;
+    color: #28a745;
+    text-shadow: 0 0 10px rgba(40, 167, 69, 0.5);
 }
 
 .role-civilian {
-    background: linear-gradient(135deg, #ddd, #bbb);
-    color: #333;
+    color: #6c757d;
+    text-shadow: 0 0 10px rgba(108, 117, 125, 0.5);
 }
 
 /* ==========================================================================
@@ -433,29 +643,63 @@
    ========================================================================== */
 
 .timer-warning {
-    animation: pulse 1s infinite;
-    color: #ffc107 !important;
+    animation: timerWarning 1s infinite;
+}
+
+@keyframes timerWarning {
+    0%, 100% {
+        background-color: #fff3cd;
+    }
+    50% {
+        background-color: #ffeaa7;
+    }
 }
 
 .timer-critical {
-    animation: heartbeat 0.8s infinite;
-    color: #dc3545 !important;
-    font-weight: bold;
+    animation: timerCritical 0.5s infinite;
+}
+
+@keyframes timerCritical {
+    0%, 100% {
+        background-color: #f8d7da;
+        transform: scale(1);
+    }
+    50% {
+        background-color: #dc3545;
+        color: white;
+        transform: scale(1.02);
+    }
 }
 
 .timer-progress {
-    height: 4px;
-    background: #e9ecef;
-    border-radius: 2px;
+    position: relative;
     overflow: hidden;
-    margin-top: 10px;
 }
 
 .timer-progress-bar {
-    height: 100%;
-    background: linear-gradient(90deg, #28a745, #ffc107, #dc3545);
     transition: width 1s linear;
-    border-radius: 2px;
+    position: relative;
+    overflow: hidden;
+}
+
+.timer-progress-bar::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+    animation: progressShimmer 2s infinite;
+}
+
+@keyframes progressShimmer {
+    0% {
+        transform: translateX(-100%);
+    }
+    100% {
+        transform: translateX(100%);
+    }
 }
 
 /* ==========================================================================
@@ -463,26 +707,52 @@
    ========================================================================== */
 
 .chat-message {
-    animation: slideInLeft 0.4s ease-out;
-    transition: all 0.3s ease;
+    animation: messageAppear 0.3s ease-out;
+    transition: all 0.2s ease;
+}
+
+@keyframes messageAppear {
+    from {
+        opacity: 0;
+        transform: translateY(20px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
 }
 
 .chat-message:hover {
-    background-color: rgba(0,0,0,0.02);
-    transform: translateX(5px);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
 .chat-message.system {
-    animation: fadeIn 0.6s ease-out;
-    background: linear-gradient(90deg, #e3f2fd, transparent);
-    border-left: 3px solid #2196f3;
+    animation: messageAppear 0.3s ease-out, systemPulse 2s ease-out;
+}
+
+@keyframes systemPulse {
+    0%, 100% {
+        border-color: #ffc107;
+    }
+    50% {
+        border-color: #28a745;
+        box-shadow: 0 0 10px rgba(255, 193, 7, 0.3);
+    }
 }
 
 .chat-message.whisper {
-    animation: slideInRight 0.4s ease-out;
-    background: linear-gradient(90deg, #f3e5f5, transparent);
-    border-left: 3px solid #9c27b0;
-    font-style: italic;
+    animation: messageAppear 0.3s ease-out, whisperGlow 1.5s ease-out;
+}
+
+@keyframes whisperGlow {
+    0%, 100% {
+        background-color: rgba(108, 117, 125, 0.1);
+    }
+    50% {
+        background-color: rgba(108, 117, 125, 0.2);
+        box-shadow: 0 0 15px rgba(108, 117, 125, 0.3);
+    }
 }
 
 /* ==========================================================================
@@ -490,22 +760,82 @@
    ========================================================================== */
 
 .game-start {
-    animation: zoomIn 1.5s cubic-bezier(0.25, 0.46, 0.45, 0.94), glow 2s ease-in-out 1.5s;
+    animation: gameStart 2s ease-out;
+}
+
+@keyframes gameStart {
+    0% {
+        opacity: 0;
+        transform: scale(0.8);
+        filter: blur(5px);
+    }
+    50% {
+        opacity: 0.8;
+        transform: scale(1.05);
+        filter: blur(2px);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1);
+        filter: blur(0);
+    }
 }
 
 .game-over {
-    animation: rotateIn 1.2s ease-out;
-    position: relative;
+    animation: gameOver 1.5s ease-out;
+}
+
+@keyframes gameOver {
+    0% {
+        opacity: 0;
+        transform: scale(0.5) rotate(5deg);
+    }
+    60% {
+        opacity: 0.9;
+        transform: scale(1.1) rotate(-2deg);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1) rotate(0deg);
+    }
 }
 
 .game-over.win {
-    background: linear-gradient(135deg, #d4edda, #c3e6cb);
-    color: #155724;
+    animation: gameOverWin 2s ease-out;
+}
+
+@keyframes gameOverWin {
+    0% {
+        background-color: var(--bg-card);
+        transform: scale(0.5);
+    }
+    50% {
+        background-color: rgba(40, 167, 69, 0.1);
+        transform: scale(1.1);
+    }
+    100% {
+        background-color: var(--bg-card);
+        transform: scale(1);
+    }
 }
 
 .game-over.lose {
-    background: linear-gradient(135deg, #f8d7da, #f5c6cb);
-    color: #721c24;
+    animation: gameOverLose 2s ease-out;
+}
+
+@keyframes gameOverLose {
+    0% {
+        background-color: var(--bg-card);
+        transform: scale(0.5);
+    }
+    50% {
+        background-color: rgba(220, 53, 69, 0.1);
+        transform: scale(1.1);
+    }
+    100% {
+        background-color: var(--bg-card);
+        transform: scale(1);
+    }
 }
 
 /* ==========================================================================
@@ -515,20 +845,21 @@
 @media (max-width: 768px) {
     .player-item:hover {
         transform: none;
+        box-shadow: none;
     }
     
     .action-button:hover {
-        transform: translateY(-1px);
+        transform: none;
+        box-shadow: none;
     }
     
-    /* Reduce animation intensity on mobile */
     .notification, .chat-message, .vote-cast {
         animation-duration: 0.3s;
     }
 }
 
 /* ==========================================================================
-   ACCESSIBILITY
+   REDUCED MOTION
    ========================================================================== */
 
 @media (prefers-reduced-motion: reduce) {
@@ -536,11 +867,12 @@
         animation-duration: 0.01ms !important;
         animation-iteration-count: 1 !important;
         transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
     }
 }
 
 /* ==========================================================================
-   UTILITY CLASSES
+   UTILITY ANIMATION CLASSES
    ========================================================================== */
 
 .animate-fade-in {
@@ -564,19 +896,19 @@
 }
 
 .animate-bounce {
-    animation: bounce 0.8s ease-out;
+    animation: bounce 1s ease-out;
 }
 
 .animate-pulse {
-    animation: pulse 1s infinite;
+    animation: pulse 1s ease-out infinite;
 }
 
 .animate-shake {
-    animation: shake 0.5s ease-in-out;
+    animation: shake 0.6s ease-out;
 }
 
 .animate-glow {
-    animation: glow 1.5s ease-in-out infinite;
+    animation: glow 2s ease-out infinite;
 }
 
 .animate-zoom-in {
@@ -588,12 +920,15 @@
 }
 
 .animate-rotate-in {
-    animation: rotateIn 0.8s ease-out;
+    animation: rotateIn 0.6s ease-out;
 }
 
-/* Transition utilities */
+/* ==========================================================================
+   TRANSITION UTILITY CLASSES
+   ========================================================================== */
+
 .transition-all {
-    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    transition: all 0.3s ease;
 }
 
 .transition-fast {
@@ -606,7 +941,7 @@
 
 .hover-lift:hover {
     transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
 
 .hover-scale:hover {
@@ -614,5 +949,33 @@
 }
 
 .hover-glow:hover {
-    box-shadow: 0 0 20px currentColor;
+    box-shadow: 0 0 15px rgba(var(--accent-color), 0.3);
+}
+
+/* ==========================================================================
+   ELIMINATION OVERLAY SPECIFIC ANIMATIONS
+   ========================================================================== */
+
+.elimination-overlay {
+    backdrop-filter: blur(5px);
+    animation: overlayFadeIn 0.3s ease-out;
+}
+
+.elimination-overlay.show .elimination-card {
+    animation: eliminationCardFlip 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+.elimination-overlay.show .role-icon {
+    animation: eliminationRoleIcon 0.8s ease-out 0.3s both;
+}
+
+@keyframes overlayFadeIn {
+    from {
+        opacity: 0;
+        backdrop-filter: blur(0px);
+    }
+    to {
+        opacity: 1;
+        backdrop-filter: blur(5px);
+    }
 } 
