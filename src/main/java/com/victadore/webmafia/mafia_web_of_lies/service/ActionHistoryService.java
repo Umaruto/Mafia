@@ -2,6 +2,7 @@ package com.victadore.webmafia.mafia_web_of_lies.service;
 
 import com.victadore.webmafia.mafia_web_of_lies.model.ActionHistory;
 import com.victadore.webmafia.mafia_web_of_lies.model.Game;
+import com.victadore.webmafia.mafia_web_of_lies.model.GameState;
 import com.victadore.webmafia.mafia_web_of_lies.repository.ActionHistoryRepository;
 import com.victadore.webmafia.mafia_web_of_lies.repository.GameRepository;
 import com.victadore.webmafia.mafia_web_of_lies.exception.GameException;
@@ -318,7 +319,7 @@ public class ActionHistoryService {
         Game game = gameRepository.findById(gameId)
             .orElseThrow(() -> new GameException("Game not found"));
         
-        boolean gameFinished = "FINISHED".equals(game.getGameState());
+        boolean gameFinished = GameState.FINISHED.equals(game.getGameState());
         
         return actions.stream()
             .map(action -> gameFinished ? 

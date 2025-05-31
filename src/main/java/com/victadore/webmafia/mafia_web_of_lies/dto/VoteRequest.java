@@ -10,12 +10,12 @@ import lombok.Data;
 public class VoteRequest {
     @NotBlank(message = "Voter username is required")
     @Size(min = 2, max = 20, message = "Voter username must be between 2 and 20 characters")
-    @Pattern(regexp = "^[a-zA-Z0-9_-]+$", message = "Voter username can only contain letters, numbers, underscores, and hyphens")
+    @Pattern(regexp = "^[a-zA-Z0-9_\\-]+$", message = "Voter username can only contain letters, numbers, underscores, and hyphens")
     private String voterUsername;
     
     // Can be null when skip is true
     @Size(min = 2, max = 20, message = "Target username must be between 2 and 20 characters")
-    @Pattern(regexp = "^[a-zA-Z0-9_-]+$", message = "Target username can only contain letters, numbers, underscores, and hyphens")
+    @Pattern(regexp = "^[a-zA-Z0-9_\\-]+$", message = "Target username can only contain letters, numbers, underscores, and hyphens")
     private String targetUsername;
     
     @NotNull(message = "Skip status must be specified")

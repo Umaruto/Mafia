@@ -4,7 +4,7 @@
  */
 
 class ValidationUtils {
-    static USERNAME_PATTERN = /^[a-zA-Z0-9_-]+$/;
+    static USERNAME_PATTERN = /^[a-zA-Z0-9_\-]+$/;
     static GAME_CODE_PATTERN = /^[A-Z0-9]{6}$/;
     static MIN_USERNAME_LENGTH = 2;
     static MAX_USERNAME_LENGTH = 20;

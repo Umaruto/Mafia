@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="'Player Profile - ' + ${username} + ' - Mafia Web of Lies'">Player Profile - Mafia Web of Lies</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .player-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 3rem 0;
+            border-radius: 0 0 50px 50px;
+            margin-bottom: 3rem;
+        }
+        
+        .player-avatar {
+            width: 120px;
+            height: 120px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3rem;
+            margin: 0 auto 1rem;
+            border: 4px solid rgba(255,255,255,0.3);
+        }
+        
+        .player-name {
+            font-size: 2.5rem;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            margin-bottom: 0.5rem;
+        }
+        
+        .player-level {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+        
+        .stat-card {
+            background: white;
+            border-radius: 15px;
+            padding: 2rem;
+            text-align: center;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+            margin-bottom: 2rem;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .stat-icon {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+        }
+        
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+        
+        .stat-label {
+            color: #6c757d;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .win-rate {
+            color: #28a745;
+        }
+        
+        .games-played {
+            color: #007bff;
+        }
+        
+        .survival-rate {
+            color: #fd7e14;
+        }
+        
+        .achievement-count {
+            color: #6f42c1;
+        }
+        
+        .progress-section {
+            background: white;
+            border-radius: 15px;
+            padding: 2rem;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+        
+        .role-stats {
+            background: white;
+            border-radius: 15px;
+            padding: 2rem;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+        
+        .role-badge {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            border-radius: 25px;
+            font-weight: bold;
+            margin: 0.25rem;
+            min-width: 100px;
+            text-align: center;
+        }
+        
+        .role-mafia {
+            background-color: #dc3545;
+            color: white;
+        }
+        
+        .role-detective {
+            background-color: #007bff;
+            color: white;
+        }
+        
+        .role-doctor {
+            background-color: #28a745;
+            color: white;
+        }
+        
+        .role-citizen {
+            background-color: #6c757d;
+            color: white;
+        }
+        
+        .recent-games {
+            background: white;
+            border-radius: 15px;
+            padding: 2rem;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        
+        .game-item {
+            padding: 1rem;
+            border-radius: 10px;
+            margin-bottom: 1rem;
+            background: #f8f9fa;
+            border-left: 4px solid #007bff;
+        }
+        
+        .game-result-won {
+            border-left-color: #28a745;
+        }
+        
+        .game-result-lost {
+            border-left-color: #dc3545;
+        }
+        
+        .experience-level {
+            padding: 0.5rem 1rem;
+            border-radius: 25px;
+            font-weight: bold;
+            margin-left: 1rem;
+        }
+        
+        .level-newcomer {
+            background-color: #f8f9fa;
+            color: #6c757d;
+        }
+        
+        .level-beginner {
+            background-color: #e3f2fd;
+            color: #1976d2;
+        }
+        
+        .level-intermediate {
+            background-color: #e8f5e8;
+            color: #2e7d32;
+        }
+        
+        .level-advanced {
+            background-color: #fff3e0;
+            color: #f57c00;
+        }
+        
+        .level-expert {
+            background-color: #f3e5f5;
+            color: #7b1fa2;
+        }
+        
+        .level-master {
+            background-color: #ffebee;
+            color: #c62828;
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-mask"></i> Mafia Web of Lies
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="/"><i class="fas fa-home"></i> Home</a>
+                <a class="nav-link active" href="/statistics"><i class="fas fa-chart-bar"></i> Statistics</a>
+                <a class="nav-link" href="/history"><i class="fas fa-history"></i> Game History</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Player Header -->
+    <div class="player-header">
+        <div class="container text-center">
+            <div class="player-avatar">
+                <i class="fas fa-user"></i>
+            </div>
+            <div class="player-name" th:text="${username}">Player Name</div>
+            <div class="player-level">
+                Player Statistics
+                <span class="experience-level" 
+                      th:if="${playerStats.totalGames != null}"
+                      th:class="'experience-level ' + 
+                               (${playerStats.experienceLevel == 'Newcomer'} ? 'level-newcomer' :
+                               (${playerStats.experienceLevel == 'Beginner'} ? 'level-beginner' :
+                               (${playerStats.experienceLevel == 'Intermediate'} ? 'level-intermediate' :
+                               (${playerStats.experienceLevel == 'Advanced'} ? 'level-advanced' :
+                               (${playerStats.experienceLevel == 'Expert'} ? 'level-expert' : 'level-master')))))"
+                      th:text="${playerStats.experienceLevel}">
+                    Intermediate
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Main Statistics -->
+        <div class="row">
+            <div class="col-lg-3 col-md-6">
+                <div class="stat-card">
+                    <div class="stat-icon games-played">
+                        <i class="fas fa-gamepad"></i>
+                    </div>
+                    <div class="stat-number games-played" th:text="${playerStats.totalGames != null ? playerStats.totalGames : 0}">0</div>
+                    <div class="stat-label">Total Games</div>
+                </div>
+            </div>
+            
+            <div class="col-lg-3 col-md-6">
+                <div class="stat-card">
+                    <div class="stat-icon win-rate">
+                        <i class="fas fa-trophy"></i>
+                    </div>
+                    <div class="stat-number win-rate">
+                        <span th:if="${playerStats.totalGames != null and playerStats.totalGames > 0}"
+                              th:text="${#numbers.formatDecimal((playerStats.gamesWon * 100.0 / playerStats.totalGames), 1, 1)}">0.0</span>
+                        <span th:if="${playerStats.totalGames == null or playerStats.totalGames == 0}">0.0</span>%
+                    </div>
+                    <div class="stat-label">Win Rate</div>
+                </div>
+            </div>
+            
+            <div class="col-lg-3 col-md-6">
+                <div class="stat-card">
+                    <div class="stat-icon survival-rate">
+                        <i class="fas fa-heart"></i>
+                    </div>
+                    <div class="stat-number survival-rate">
+                        <span th:if="${playerStats.totalGames != null and playerStats.totalGames > 0}"
+                              th:text="${#numbers.formatDecimal((playerStats.timesSurvived * 100.0 / playerStats.totalGames), 1, 1)}">0.0</span>
+                        <span th:if="${playerStats.totalGames == null or playerStats.totalGames == 0}">0.0</span>%
+                    </div>
+                    <div class="stat-label">Survival Rate</div>
+                </div>
+            </div>
+            
+            <div class="col-lg-3 col-md-6">
+                <div class="stat-card">
+                    <div class="stat-icon achievement-count">
+                        <i class="fas fa-medal"></i>
+                    </div>
+                    <div class="stat-number achievement-count" th:text="${(playerStats.mvpAwards != null ? playerStats.mvpAwards : 0) + (playerStats.perfectGames != null ? playerStats.perfectGames : 0)}">0</div>
+                    <div class="stat-label">Achievements</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Role Statistics -->
+        <div class="role-stats">
+            <h4 class="mb-4"><i class="fas fa-masks-theater"></i> Role Performance</h4>
+            <div class="row">
+                <div class="col-md-6 col-lg-3 text-center mb-3">
+                    <div class="role-badge role-mafia">
+                        <i class="fas fa-user-secret"></i> MAFIA
+                    </div>
+                    <div class="mt-2">
+                        <strong th:text="${playerStats.mafiaGames != null ? playerStats.mafiaGames : 0}">0</strong> games
+                        <br>
+                        <small class="text-muted">
+                            <span th:if="${playerStats.mafiaGames != null and playerStats.mafiaGames > 0}"
+                                  th:text="${#numbers.formatDecimal((playerStats.mafiaWins * 100.0 / playerStats.mafiaGames), 1, 1)}">0.0</span>
+                            <span th:if="${playerStats.mafiaGames == null or playerStats.mafiaGames == 0}">0.0</span>% win rate
+                        </small>
+                    </div>
+                </div>
+                
+                <div class="col-md-6 col-lg-3 text-center mb-3">
+                    <div class="role-badge role-detective">
+                        <i class="fas fa-search"></i> DETECTIVE
+                    </div>
+                    <div class="mt-2">
+                        <strong th:text="${playerStats.detectiveGames != null ? playerStats.detectiveGames : 0}">0</strong> games
+                        <br>
+                        <small class="text-muted">
+                            <span th:text="${playerStats.mafiaFound != null ? playerStats.mafiaFound : 0}">0</span> mafia found
+                        </small>
+                    </div>
+                </div>
+                
+                <div class="col-md-6 col-lg-3 text-center mb-3">
+                    <div class="role-badge role-doctor">
+                        <i class="fas fa-user-md"></i> DOCTOR
+                    </div>
+                    <div class="mt-2">
+                        <strong th:text="${playerStats.doctorGames != null ? playerStats.doctorGames : 0}">0</strong> games
+                        <br>
+                        <small class="text-muted">
+                            <span th:text="${playerStats.successfulSaves != null ? playerStats.successfulSaves : 0}">0</span> saves made
+                        </small>
+                    </div>
+                </div>
+                
+                <div class="col-md-6 col-lg-3 text-center mb-3">
+                    <div class="role-badge role-citizen">
+                        <i class="fas fa-users"></i> CITIZEN
+                    </div>
+                    <div class="mt-2">
+                        <strong th:text="${playerStats.citizenGames != null ? playerStats.citizenGames : 0}">0</strong> games
+                        <br>
+                        <small class="text-muted">
+                            <span th:text="${playerStats.correctMafiaVotes != null ? playerStats.correctMafiaVotes : 0}">0</span> correct votes
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Additional Statistics -->
+        <div class="row">
+            <div class="col-lg-6">
+                <div class="progress-section">
+                    <h5 class="mb-4"><i class="fas fa-chart-line"></i> Performance Metrics</h5>
+                    
+                    <div class="mb-4">
+                        <div class="d-flex justify-content-between">
+                            <span>Voting Accuracy</span>
+                            <span th:if="${playerStats.totalVotesCast != null and playerStats.totalVotesCast > 0}"
+                                  th:text="${#numbers.formatDecimal((playerStats.correctMafiaVotes * 100.0 / playerStats.totalVotesCast), 1, 1)} + '%'">0%</span>
+                            <span th:if="${playerStats.totalVotesCast == null or playerStats.totalVotesCast == 0}">0%</span>
+                        </div>
+                        <div class="progress" style="height: 8px;">
+                            <div class="progress-bar bg-success" 
+                                 th:if="${playerStats.totalVotesCast != null and playerStats.totalVotesCast > 0}"
+                                 th:style="'width: ' + ${(playerStats.correctMafiaVotes * 100.0 / playerStats.totalVotesCast)} + '%'"></div>
+                            <div class="progress-bar bg-success" th:if="${playerStats.totalVotesCast == null or playerStats.totalVotesCast == 0}" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <div class="d-flex justify-content-between">
+                            <span>MVP Awards</span>
+                            <span th:text="${playerStats.mvpAwards != null ? playerStats.mvpAwards : 0}">0</span>
+                        </div>
+                        <div class="progress" style="height: 8px;">
+                            <div class="progress-bar bg-warning" 
+                                 th:if="${playerStats.totalGames != null and playerStats.totalGames > 0}"
+                                 th:style="'width: ' + ${((playerStats.mvpAwards != null ? playerStats.mvpAwards : 0) * 100.0 / playerStats.totalGames)} + '%'"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <div class="d-flex justify-content-between">
+                            <span>Perfect Games</span>
+                            <span th:text="${playerStats.perfectGames != null ? playerStats.perfectGames : 0}">0</span>
+                        </div>
+                        <div class="progress" style="height: 8px;">
+                            <div class="progress-bar bg-info" 
+                                 th:if="${playerStats.totalGames != null and playerStats.totalGames > 0}"
+                                 th:style="'width: ' + ${((playerStats.perfectGames != null ? playerStats.perfectGames : 0) * 100.0 / playerStats.totalGames)} + '%'"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-lg-6">
+                <div class="progress-section">
+                    <h5 class="mb-4"><i class="fas fa-calendar-alt"></i> Activity & Statistics</h5>
+                    
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <span><i class="fas fa-calendar text-muted"></i> First Game</span>
+                        <span th:if="${playerStats.firstGameDate != null}" 
+                              th:text="${#temporals.format(playerStats.firstGameDate, 'MMM dd, yyyy')}">Never</span>
+                        <span th:if="${playerStats.firstGameDate == null}">Never</span>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <span><i class="fas fa-clock text-muted"></i> Last Game</span>
+                        <span th:if="${playerStats.lastGameDate != null}" 
+                              th:text="${#temporals.format(playerStats.lastGameDate, 'MMM dd, yyyy')}">Never</span>
+                        <span th:if="${playerStats.lastGameDate == null}">Never</span>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <span><i class="fas fa-ballot-check text-muted"></i> Total Votes Cast</span>
+                        <span th:text="${playerStats.totalVotesCast != null ? playerStats.totalVotesCast : 0}">0</span>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span><i class="fas fa-moon text-muted"></i> Night Actions</span>
+                        <span th:text="${playerStats.nightActionsPerformed != null ? playerStats.nightActionsPerformed : 0}">0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="text-center mt-4 mb-5">
+            <a th:href="@{/history/player/{username}(username=${username})}" class="btn btn-primary btn-lg me-3">
+                <i class="fas fa-history"></i> View Game History
+            </a>
+            <a href="/statistics" class="btn btn-outline-secondary btn-lg me-3">
+                <i class="fas fa-chart-bar"></i> All Statistics
+            </a>
+            <a href="/statistics/leaderboards" class="btn btn-outline-primary btn-lg">
+                <i class="fas fa-medal"></i> Leaderboards
+            </a>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html> 

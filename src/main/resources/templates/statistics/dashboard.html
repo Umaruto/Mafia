@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Player Statistics Dashboard - Mafia Web of Lies</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="/css/styles.css" rel="stylesheet">
+    <style>
+        .stats-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+        }
+        
+        .stats-number {
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .stats-label {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+        
+        .leaderboard-card {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            overflow: hidden;
+            margin-bottom: 30px;
+        }
+        
+        .leaderboard-header {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .leaderboard-item {
+            padding: 15px 20px;
+            border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            align-items: center;
+            transition: background-color 0.3s;
+        }
+        
+        .leaderboard-item:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .leaderboard-item:last-child {
+            border-bottom: none;
+        }
+        
+        .rank-badge {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 15px;
+        }
+        
+        .rank-1 { background: linear-gradient(135deg, #ffd700, #ffed4e); color: #333; }
+        .rank-2 { background: linear-gradient(135deg, #c0c0c0, #e8e8e8); color: #333; }
+        .rank-3 { background: linear-gradient(135deg, #cd7f32, #daa520); color: white; }
+        .rank-other { background: linear-gradient(135deg, #6c757d, #495057); color: white; }
+        
+        .player-info {
+            flex-grow: 1;
+        }
+        
+        .player-name {
+            font-weight: bold;
+            font-size: 1.1rem;
+            margin-bottom: 2px;
+        }
+        
+        .player-stats {
+            font-size: 0.9rem;
+            color: #6c757d;
+        }
+        
+        .stat-value {
+            font-weight: bold;
+            color: #28a745;
+        }
+        
+        .experience-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+        
+        .exp-newcomer { background: #e3f2fd; color: #1976d2; }
+        .exp-beginner { background: #f3e5f5; color: #7b1fa2; }
+        .exp-intermediate { background: #fff3e0; color: #f57c00; }
+        .exp-advanced { background: #e8f5e8; color: #388e3c; }
+        .exp-expert { background: #fce4ec; color: #c2185b; }
+        .exp-master { background: #fff8e1; color: #f9a825; }
+        
+        .chart-container {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        
+        .nav-pills .nav-link {
+            border-radius: 25px;
+            margin-right: 10px;
+        }
+        
+        .nav-pills .nav-link.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-mask"></i> Mafia Web of Lies
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="/"><i class="fas fa-home"></i> Home</a>
+                <a class="nav-link active" href="/statistics"><i class="fas fa-chart-bar"></i> Statistics</a>
+                <a class="nav-link" href="/history"><i class="fas fa-history"></i> Game History</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-12">
+                <h1 class="text-center mb-4">
+                    <i class="fas fa-trophy text-warning"></i>
+                    Player Statistics Dashboard
+                </h1>
+            </div>
+        </div>
+
+        <!-- Global Statistics -->
+        <div class="row mb-4" th:if="${globalStats}">
+            <div class="col-md-3">
+                <div class="stats-card">
+                    <div class="stats-number" th:text="${globalStats.totalPlayers ?: 0}">0</div>
+                    <div class="stats-label">Total Players</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stats-card">
+                    <div class="stats-number" th:text="${globalStats.totalGamesPlayed ?: 0}">0</div>
+                    <div class="stats-label">Games Played</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stats-card">
+                    <div class="stats-number" th:text="${#numbers.formatDecimal(globalStats.averageWinRate ?: 0, 1, 1)} + '%'">0%</div>
+                    <div class="stats-label">Average Win Rate</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stats-card">
+                    <div class="stats-number" th:text="${#numbers.formatDecimal(globalStats.averageSurvivalRate ?: 0, 1, 1)} + '%'">0%</div>
+                    <div class="stats-label">Average Survival Rate</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- No Data Alert -->
+        <div th:if="${noDataMessage}" class="alert alert-info text-center mb-4">
+            <i class="fas fa-info-circle me-2"></i>
+            <span th:text="${noDataMessage}">No game statistics available yet. Play some games to see statistics!</span>
+            <div class="mt-2">
+                <a href="/" class="btn btn-primary btn-sm me-2">
+                    <i class="fas fa-play"></i> Start Playing
+                </a>
+                <a href="/history" class="btn btn-outline-secondary btn-sm">
+                    <i class="fas fa-history"></i> View Game History
+                </a>
+            </div>
+        </div>
+
+        <!-- Navigation Tabs -->
+        <ul class="nav nav-pills justify-content-center mb-4">
+            <li class="nav-item">
+                <a class="nav-link active" data-bs-toggle="pill" href="#leaderboards">
+                    <i class="fas fa-medal"></i> Leaderboards
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" data-bs-toggle="pill" href="#recent-activity">
+                    <i class="fas fa-clock"></i> Recent Activity
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" data-bs-toggle="pill" href="#achievements">
+                    <i class="fas fa-star"></i> Achievements
+                </a>
+            </li>
+        </ul>
+
+        <div class="tab-content">
+            <!-- Leaderboards Tab -->
+            <div class="tab-pane fade show active" id="leaderboards">
+                <div class="row">
+                    <!-- Win Rate Leaderboard -->
+                    <div class="col-lg-4">
+                        <div class="leaderboard-card">
+                            <div class="leaderboard-header">
+                                <h5><i class="fas fa-trophy"></i> Top Win Rate</h5>
+                                <small>Minimum 3 games</small>
+                            </div>
+                            <div th:if="${topWinRate != null and !topWinRate.isEmpty()}">
+                                <div class="leaderboard-item" th:each="player, iterStat : ${topWinRate}">
+                                    <div class="rank-badge" th:classappend="${iterStat.index == 0} ? 'rank-1' : (${iterStat.index == 1} ? 'rank-2' : (${iterStat.index == 2} ? 'rank-3' : 'rank-other'))" th:text="${iterStat.index + 1}">1</div>
+                                    <div class="player-info">
+                                        <div class="player-name">
+                                            <a th:href="@{/statistics/player/{username}(username=${player.username})}" 
+                                               class="text-decoration-none" th:text="${player.username}">Player</a>
+                                        </div>
+                                        <div class="player-stats">
+                                            <span class="stat-value" th:text="${#numbers.formatDecimal(player.winRate, 1, 1)} + '%'">0%</span>
+                                            win rate • <span th:text="${player.totalGames}">0</span> games
+                                        </div>
+                                    </div>
+                                    <span class="experience-badge" th:classappend="'exp-' + ${#strings.toLowerCase(player.experienceLevel)}" th:text="${player.experienceLevel}">Newcomer</span>
+                                </div>
+                            </div>
+                            <div th:if="${topWinRate == null or topWinRate.isEmpty()}" class="text-center p-4 text-muted">
+                                <i class="fas fa-info-circle"></i> No data available
+                            </div>
+                            <div class="text-center p-3">
+                                <a href="/statistics/leaderboards?type=winrate" class="btn btn-outline-primary btn-sm">View Full Leaderboard</a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Games Played Leaderboard -->
+                    <div class="col-lg-4">
+                        <div class="leaderboard-card">
+                            <div class="leaderboard-header">
+                                <h5><i class="fas fa-gamepad"></i> Most Active</h5>
+                                <small>Total games played</small>
+                            </div>
+                            <div th:if="${topGamesPlayed != null and !topGamesPlayed.isEmpty()}">
+                                <div class="leaderboard-item" th:each="player, iterStat : ${topGamesPlayed}">
+                                    <div class="rank-badge" th:classappend="${iterStat.index == 0} ? 'rank-1' : (${iterStat.index == 1} ? 'rank-2' : (${iterStat.index == 2} ? 'rank-3' : 'rank-other'))" th:text="${iterStat.index + 1}">1</div>
+                                    <div class="player-info">
+                                        <div class="player-name">
+                                            <a th:href="@{/statistics/player/{username}(username=${player.username})}" 
+                                               class="text-decoration-none" th:text="${player.username}">Player</a>
+                                        </div>
+                                        <div class="player-stats">
+                                            <span class="stat-value" th:text="${player.totalGames}">0</span> games •
+                                            <span th:text="${player.gamesWon}">0</span> wins
+                                        </div>
+                                    </div>
+                                    <span class="experience-badge" th:classappend="'exp-' + ${#strings.toLowerCase(player.experienceLevel)}" th:text="${player.experienceLevel}">Newcomer</span>
+                                </div>
+                            </div>
+                            <div th:if="${topGamesPlayed == null or topGamesPlayed.isEmpty()}" class="text-center p-4 text-muted">
+                                <i class="fas fa-info-circle"></i> No data available
+                            </div>
+                            <div class="text-center p-3">
+                                <a href="/statistics/leaderboards?type=games" class="btn btn-outline-primary btn-sm">View Full Leaderboard</a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Survival Rate Leaderboard -->
+                    <div class="col-lg-4">
+                        <div class="leaderboard-card">
+                            <div class="leaderboard-header">
+                                <h5><i class="fas fa-shield-alt"></i> Best Survivors</h5>
+                                <small>Minimum 3 games</small>
+                            </div>
+                            <div th:if="${topSurvival != null and !topSurvival.isEmpty()}">
+                                <div class="leaderboard-item" th:each="player, iterStat : ${topSurvival}">
+                                    <div class="rank-badge" th:classappend="${iterStat.index == 0} ? 'rank-1' : (${iterStat.index == 1} ? 'rank-2' : (${iterStat.index == 2} ? 'rank-3' : 'rank-other'))" th:text="${iterStat.index + 1}">1</div>
+                                    <div class="player-info">
+                                        <div class="player-name">
+                                            <a th:href="@{/statistics/player/{username}(username=${player.username})}" 
+                                               class="text-decoration-none" th:text="${player.username}">Player</a>
+                                        </div>
+                                        <div class="player-stats">
+                                            <span class="stat-value" th:text="${#numbers.formatDecimal(player.survivalRate, 1, 1)} + '%'">0%</span>
+                                            survival • <span th:text="${player.timesSurvived}">0</span>/<span th:text="${player.totalGames}">0</span>
+                                        </div>
+                                    </div>
+                                    <span class="experience-badge" th:classappend="'exp-' + ${#strings.toLowerCase(player.experienceLevel)}" th:text="${player.experienceLevel}">Newcomer</span>
+                                </div>
+                            </div>
+                            <div th:if="${topSurvival == null or topSurvival.isEmpty()}" class="text-center p-4 text-muted">
+                                <i class="fas fa-info-circle"></i> No data available
+                            </div>
+                            <div class="text-center p-3">
+                                <a href="/statistics/leaderboards?type=survival" class="btn btn-outline-primary btn-sm">View Full Leaderboard</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Activity Tab -->
+            <div class="tab-pane fade" id="recent-activity">
+                <div class="chart-container">
+                    <h5><i class="fas fa-clock"></i> Recently Active Players</h5>
+                    <p class="text-muted">Players who have played in the last 7 days</p>
+                    
+                    <div th:if="${recentlyActive != null and !recentlyActive.isEmpty()}">
+                        <div class="row">
+                            <div class="col-md-6" th:each="player : ${recentlyActive}">
+                                <div class="card mb-3">
+                                    <div class="card-body">
+                                        <h6 class="card-title">
+                                            <a th:href="@{/statistics/player/{username}(username=${player.username})}" 
+                                               class="text-decoration-none" th:text="${player.username}">Player</a>
+                                            <span class="experience-badge float-end" th:classappend="'exp-' + ${#strings.toLowerCase(player.experienceLevel)}" th:text="${player.experienceLevel}">Newcomer</span>
+                                        </h6>
+                                        <div class="row text-center">
+                                            <div class="col-4">
+                                                <div class="fw-bold text-primary" th:text="${player.totalGames}">0</div>
+                                                <small class="text-muted">Games</small>
+                                            </div>
+                                            <div class="col-4">
+                                                <div class="fw-bold text-success" th:text="${#numbers.formatDecimal(player.winRate, 1, 1)} + '%'">0%</div>
+                                                <small class="text-muted">Win Rate</small>
+                                            </div>
+                                            <div class="col-4">
+                                                <div class="fw-bold text-info" th:text="${player.favoriteRole}">None</div>
+                                                <small class="text-muted">Fav Role</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div th:if="${recentlyActive == null or recentlyActive.isEmpty()}" class="text-center p-4 text-muted">
+                        <i class="fas fa-info-circle"></i> No recent activity
+                    </div>
+                </div>
+            </div>
+
+            <!-- Achievements Tab -->
+            <div class="tab-pane fade" id="achievements">
+                <div class="chart-container">
+                    <h5><i class="fas fa-star"></i> Achievement Leaders</h5>
+                    <p class="text-muted">Players with perfect games and MVP awards</p>
+                    
+                    <div th:if="${achievements != null and !achievements.isEmpty()}">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Player</th>
+                                        <th>Experience</th>
+                                        <th>Perfect Games</th>
+                                        <th>MVP Awards</th>
+                                        <th>Total Games</th>
+                                        <th>Win Rate</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr th:each="player : ${achievements}">
+                                        <td>
+                                            <a th:href="@{/statistics/player/{username}(username=${player.username})}" 
+                                               class="text-decoration-none fw-bold" th:text="${player.username}">Player</a>
+                                        </td>
+                                        <td>
+                                            <span class="experience-badge" th:classappend="'exp-' + ${#strings.toLowerCase(player.experienceLevel)}" th:text="${player.experienceLevel}">Newcomer</span>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-warning text-dark" th:text="${player.perfectGames}">0</span>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-success" th:text="${player.mvpAwards}">0</span>
+                                        </td>
+                                        <td th:text="${player.totalGames}">0</td>
+                                        <td th:text="${#numbers.formatDecimal(player.winRate, 1, 1)} + '%'">0%</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div th:if="${achievements == null or achievements.isEmpty()}" class="text-center p-4 text-muted">
+                        <i class="fas fa-info-circle"></i> No achievements yet
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Player Search -->
+        <div class="chart-container mt-4">
+            <h5><i class="fas fa-search"></i> Find Player Statistics</h5>
+            <form class="row g-3" action="/statistics/player" method="get">
+                <div class="col-md-8">
+                    <input type="text" class="form-control" name="username" placeholder="Enter username..." required>
+                </div>
+                <div class="col-md-4">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-search"></i> Search Player
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html> 

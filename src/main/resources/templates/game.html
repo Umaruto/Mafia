@@ -8,8 +8,10 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- FontAwesome for icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <!-- Action History CSS -->
+    <!-- Custom CSS Files -->
     <link rel="stylesheet" th:href="@{/css/actionHistory.css}">
+    <link rel="stylesheet" th:href="@{/css/game.css}">
+    <link rel="stylesheet" th:href="@{/css/animations.css}">
     <style>
         .game-container {
             padding: 20px;
@@ -91,6 +93,148 @@
             color: #6c757d !important;
             font-weight: bold;
         }
+        
+        /* Enhanced timer styles */
+        .timer-container {
+            position: relative;
+            margin-top: 15px;
+        }
+        
+        .timer-progress {
+            height: 6px;
+            background: #e9ecef;
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+        
+        .timer-progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #28a745, #ffc107, #dc3545);
+            transition: width 1s linear;
+            border-radius: 3px;
+        }
+        
+        /* Chat Section Styles */
+        .chat-section {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            min-height: 300px;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            flex-grow: 1;
+        }
+        
+        .chat-messages {
+            flex-grow: 1;
+            max-height: 250px;
+            min-height: 200px;
+            overflow-y: auto;
+            background-color: white;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .chat-message {
+            margin-bottom: 8px;
+            padding: 6px 10px;
+            border-radius: 8px;
+            word-wrap: break-word;
+            position: relative;
+        }
+        
+        .chat-message.own-message {
+            background-color: #007bff;
+            color: white;
+            margin-left: 20%;
+            text-align: right;
+        }
+        
+        .chat-message.other-message {
+            background-color: #e9ecef;
+            color: #333;
+            margin-right: 20%;
+        }
+        
+        .chat-message.system-message {
+            background-color: #fff3cd;
+            color: #856404;
+            border-left: 4px solid #ffc107;
+            margin: 0;
+            font-style: italic;
+            text-align: center;
+        }
+        
+        .chat-message.mafia-message {
+            background-color: #f8d7da;
+            color: #721c24;
+            border-left: 4px solid #dc3545;
+            margin-right: 20%;
+        }
+        
+        .chat-message .sender {
+            font-weight: bold;
+            font-size: 0.9em;
+            margin-bottom: 2px;
+        }
+        
+        .chat-message .timestamp {
+            font-size: 0.75em;
+            opacity: 0.7;
+            margin-left: 8px;
+        }
+        
+        .chat-message .content {
+            margin-top: 2px;
+        }
+        
+        .chat-input-container {
+            margin-top: auto;
+        }
+        
+        #chatInput:disabled {
+            background-color: #f8f9fa;
+            border-color: #dee2e6;
+        }
+        
+        #chatPhaseIndicator.day {
+            background-color: #28a745 !important;
+        }
+        
+        #chatPhaseIndicator.night {
+            background-color: #6c757d !important;
+        }
+        
+        #chatPhaseIndicator.mafia-night {
+            background-color: #dc3545 !important;
+        }
+        
+        .chat-messages::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .chat-messages::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        
+        .chat-messages::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 3px;
+        }
+        
+        .chat-messages::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
     </style>
 </head>
 <body>
@@ -98,20 +242,20 @@
         <!-- Game Header -->
         <div class="row">
             <div class="col">
-                <div class="game-header">
-                <h1>Mafia: Web of Lies</h1>
+                <div class="game-header transition-all hover-lift">
+                <h1 class="animate-fade-in">Mafia: Web of Lies</h1>
                 <div class="game-info">
-                    <span>Game Code: <span id="gameCode" th:text="${gameCode}"></span></span>
+                    <span class="transition-all hover-scale">Game Code: <span id="gameCode" th:text="${gameCode}"></span></span>
                     <input type="hidden" id="username" th:value="${username}">
-                    <span>Day: <span id="day">1</span></span>
-                    <span>Phase: <span id="phase">DAY</span></span>
+                    <span class="transition-all hover-scale">Day: <span id="day">1</span></span>
+                    <span class="transition-all hover-scale">Phase: <span id="phase">DAY</span></span>
                     
                     <!-- Sound Settings Button -->
                     <div class="float-end">
-                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="window.soundSettingsUI.show()" title="Sound Settings">
+                        <button type="button" class="btn btn-outline-secondary btn-sm action-button" onclick="window.soundSettingsUI.show()" title="Sound Settings">
                             <i class="fas fa-volume-up"></i>
                         </button>
-                        <button type="button" class="btn btn-outline-secondary btn-sm ms-1" onclick="toggleSound()" id="soundToggleBtn" title="Toggle Sound">
+                        <button type="button" class="btn btn-outline-secondary btn-sm ms-1 action-button" onclick="toggleSound()" id="soundToggleBtn" title="Toggle Sound">
                             <i class="fas fa-volume-up" id="soundToggleIcon"></i>
                         </button>
                     </div>
@@ -119,7 +263,7 @@
                 
                 <!-- Game Notifications -->
                 <div id="gameNotifications" class="mt-2" style="display: none;">
-                    <div class="alert alert-info" id="notificationText"></div>
+                    <div class="alert alert-info notification" id="notificationText"></div>
                 </div>
                 </div>
             </div>
@@ -128,47 +272,71 @@
         <div class="row">
             <!-- Player List -->
             <div class="col-md-4">
-                <div class="player-list">
-                <h3>Players</h3>
+                <div class="player-list transition-all hover-lift">
+                <h3 class="animate-slide-in-left">Players</h3>
                     <div id="playersList">
                     <!-- Players will be dynamically added here -->
                     </div>
                 </div>
 
-                <div class="role-info">
-                    <h4>Your Role</h4>
+                <div class="role-info transition-all hover-lift">
+                    <h4 class="animate-slide-in-left">Your Role</h4>
                     <div id="roleInfo">
                         <p>Loading...</p>
                     </div>
                 </div>
 
                 <!-- Action History Panel -->
-                <div class="action-history-section">
-                    <h4>Action History</h4>
+                <div class="action-history-section transition-all hover-lift">
+                    <h4 class="animate-slide-in-left">Action History</h4>
                     <div id="actionHistoryPanel">
                         <!-- Action history will be loaded here -->
+                    </div>
+                </div>
+
+                <!-- Chat Panel -->
+                <div class="chat-section transition-all hover-lift">
+                    <h4 class="animate-slide-in-left">
+                        <span id="chatTitle">Public Chat</span>
+                        <span id="chatPhaseIndicator" class="badge bg-primary ms-2">DAY</span>
+                    </h4>
+                    <div class="chat-container">
+                        <div id="chatMessages" class="chat-messages">
+                            <!-- Chat messages will be displayed here -->
+                        </div>
+                        <div id="chatInputContainer" class="chat-input-container">
+                            <div class="input-group">
+                                <input type="text" id="chatInput" class="form-control" placeholder="Type your message..." maxlength="1000" disabled>
+                                <button id="sendChatBtn" class="btn btn-primary action-button" disabled>
+                                    <i class="fas fa-paper-plane"></i>
+                                </button>
+                            </div>
+                            <div id="chatStatus" class="small text-muted mt-1">
+                                Chat disabled - waiting for game to start
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
 
             <!-- Game Actions -->
             <div class="col-md-8">
-                <div class="game-actions">
-                    <h3 id="phaseTitle">Game Actions</h3>
+                <div class="game-actions transition-all hover-lift">
+                    <h3 id="phaseTitle" class="animate-fade-in">Game Actions</h3>
                     <div id="gameContent">
                         <!-- Day Phase Actions -->
-                        <div id="dayPhase" style="display: none;">
+                        <div id="dayPhase" style="display: none;" class="animate-slide-in-up">
                             <h4>Day Phase - Discussion and Voting</h4>
                             <p>Discuss with other players and vote to eliminate someone you suspect is Mafia.</p>
                             
                             <div class="voting-section mt-3">
                                 <label for="voteSelect">Vote to eliminate:</label>
-                                <select id="voteSelect" class="form-select mb-2">
+                                <select id="voteSelect" class="form-select mb-2 transition-all">
                                     <option value="">Select a player...</option>
                                 </select>
                                 <div>
-                                    <button id="voteBtn" class="btn btn-danger me-2">Vote</button>
-                                    <button id="skipVoteBtn" class="btn btn-secondary">Skip Vote</button>
+                                    <button id="voteBtn" class="btn btn-danger me-2 action-button hover-lift">Vote</button>
+                                    <button id="skipVoteBtn" class="btn btn-secondary action-button hover-lift">Skip Vote</button>
                 </div>
                 </div>
                             
@@ -179,7 +347,7 @@
             </div>
                         
                         <!-- Night Phase Actions -->
-                        <div id="nightPhase" style="display: none;">
+                        <div id="nightPhase" style="display: none;" class="animate-slide-in-up">
                             <h4>Night Phase</h4>
                             <div id="nightActions">
                                 <!-- Role-specific actions will be shown here -->
@@ -187,14 +355,14 @@
     </div>
 
                         <!-- Game Over -->
-                        <div id="gameOver" style="display: none;">
+                        <div id="gameOver" style="display: none;" class="animate-zoom-in">
                             <h4>Game Over!</h4>
                             <div id="winnerMessage"></div>
-                            <button class="btn btn-primary mt-3" onclick="location.href='/'">Return to Home</button>
+                            <button class="btn btn-primary mt-3 action-button hover-lift" onclick="location.href='/'">Return to Home</button>
                         </div>
                         
                         <div class="mt-3">
-                            <button id="refreshBtn" class="btn btn-primary">Refresh Game State</button>
+                            <button id="refreshBtn" class="btn btn-primary action-button hover-lift">Refresh Game State</button>
                         </div>
                         
                         <!-- Phase Timer -->
@@ -215,6 +383,10 @@
     <!-- Sound Manager JavaScript -->
     <script th:src="@{/js/soundManager.js}"></script>
     <script th:src="@{/js/soundSettings.js}"></script>
+    <!-- Animation Manager JavaScript -->
+    <script th:src="@{/js/animations.js}"></script>
+    <!-- Chat Manager JavaScript -->
+    <script th:src="@{/js/chat.js}"></script>
     <script th:inline="javascript">
         const gameCode = /*[[${gameCode}]]*/ '';
         const username = /*[[${username}]]*/ '';
@@ -244,7 +416,7 @@
                     
                     if (roleData.role === 'MAFIA') {
                         roleInfo.innerHTML = `
-                            <h5>${roleData.role}</h5>
+                            <h5 class="role-reveal role-mafia">${roleData.role}</h5>
                             <p>${roleData.description}</p>
                             <div id="roleTeamInfo" class="mt-3">
                                 <h6>Your Mafia Team:</h6>
@@ -254,10 +426,17 @@
                         // Load Mafia team info for role section
                         loadMafiaTeamForRole();
                     } else {
+                        const roleClass = roleData.role === 'DETECTIVE' ? 'role-detective' : 
+                                         roleData.role === 'DOCTOR' ? 'role-doctor' : 'role-civilian';
                         roleInfo.innerHTML = `
-                            <h5>${roleData.role}</h5>
+                            <h5 class="role-reveal ${roleClass}">${roleData.role}</h5>
                             <p>${roleData.description}</p>
                         `;
+                    }
+                    
+                    // Animate role reveal
+                    if (window.animationManager) {
+                        window.animationManager.animateRoleReveal(roleInfo.querySelector('h5'), roleData.role);
                     }
                     
                     // Now load the rest of the game state after role is loaded
@@ -342,6 +521,8 @@
                                 if (window.soundManager) {
                                     window.soundManager.playGameEvent('PHASE_CHANGE', { phase: 'DAY' });
                                 }
+                                // Update chat for day phase
+                                updateChatPhase('DAY', currentPlayerRole, isPlayerAlive);
                             }
                             if (isPlayerAlive) {
                                 loadVotingStatus();
@@ -357,7 +538,15 @@
                                 if (window.soundManager) {
                                     window.soundManager.playGameEvent('PHASE_CHANGE', { phase: 'NIGHT' });
                                 }
+                                // Update chat for night phase
+                                updateChatPhase('NIGHT', currentPlayerRole, isPlayerAlive);
                             }
+                        }
+                        
+                        // Always update chat to ensure it's properly configured
+                        const currentPhaseText = game.currentPhase === 0 ? 'DAY' : 'NIGHT';
+                        if (typeof updateChatPhase === 'function') {
+                            updateChatPhase(currentPhaseText, currentPlayerRole, isPlayerAlive);
                         }
                     });
                 })
@@ -481,21 +670,47 @@
             document.getElementById('nightPhase').style.display = 'none';
             document.getElementById('gameOver').style.display = 'none';
             
+            // Update chat system for day phase
+            updateChatPhase('DAY', currentPlayerRole, isPlayerAlive);
+            
+            // Trigger phase transition animation
+            if (window.animationManager) {
+                document.dispatchEvent(new CustomEvent('phaseChange', {
+                    detail: { phase: 'DAY', day: document.getElementById('day').textContent }
+                }));
+            }
+            
+            // Add day phase animation classes
+            const dayPhase = document.getElementById('dayPhase');
+            dayPhase.classList.add('day-phase-enter', 'animate-slide-in-down');
+            
             // Show spectator interface for dead players
             if (!isPlayerAlive) {
                 document.getElementById('dayPhase').innerHTML = `
-                    <div class="alert alert-secondary">
+                    <div class="alert alert-secondary notification animate-fade-in">
                         <h4>Day Phase - Spectator Mode</h4>
                         <p><strong>You are dead and watching the game.</strong></p>
                         <p>The living players are discussing and voting to eliminate someone they suspect is Mafia.</p>
                         <p>You cannot participate but can observe the proceedings.</p>
                     </div>
-                    <div id="votingStatus" class="mt-3">
+                    <div id="votingStatus" class="mt-3 animate-slide-in-up">
                         <h5>Voting Status:</h5>
                         <div id="votesList"></div>
                     </div>
                 `;
             }
+            
+            // Animate vote buttons when they become visible
+            setTimeout(() => {
+                const voteBtn = document.getElementById('voteBtn');
+                const skipBtn = document.getElementById('skipVoteBtn');
+                if (voteBtn && window.animationManager) {
+                    window.animationManager.animateButton(voteBtn, 'bounce');
+                }
+                if (skipBtn && window.animationManager) {
+                    setTimeout(() => window.animationManager.animateButton(skipBtn, 'bounce'), 200);
+                }
+            }, 800);
         }
 
         function showNightPhase() {
@@ -503,11 +718,25 @@
             document.getElementById('nightPhase').style.display = 'block';
             document.getElementById('gameOver').style.display = 'none';
             
+            // Update chat system for night phase
+            updateChatPhase('NIGHT', currentPlayerRole, isPlayerAlive);
+            
+            // Trigger phase transition animation
+            if (window.animationManager) {
+                document.dispatchEvent(new CustomEvent('phaseChange', {
+                    detail: { phase: 'NIGHT', day: document.getElementById('day').textContent }
+                }));
+            }
+            
+            // Add night phase animation classes
+            const nightPhase = document.getElementById('nightPhase');
+            nightPhase.classList.add('night-phase-enter', 'animate-slide-in-up');
+            
             // Show role-specific night actions only for alive players
             const nightActions = document.getElementById('nightActions');
             if (!isPlayerAlive) {
                 nightActions.innerHTML = `
-                    <div class="alert alert-secondary">
+                    <div class="alert alert-secondary notification animate-fade-in">
                         <h4>Night Phase - Spectator Mode</h4>
                         <p><strong>You are dead and watching the game.</strong></p>
                         <p>The living players with special roles are performing their night actions.</p>
@@ -519,7 +748,7 @@
             
             if (currentPlayerRole === 'MAFIA') {
                 nightActions.innerHTML = `
-                    <div class="alert alert-danger">
+                    <div class="alert alert-danger notification animate-slide-in-left">
                         <h5>Mafia Night Action</h5>
                         <p>Vote for a player to eliminate tonight. Your team needs to coordinate the decision.</p>
                         <div id="mafiaTeamInfo" class="mb-3">
@@ -528,10 +757,10 @@
                         </div>
                         <div class="mt-3">
                             <label for="mafiaTarget">Your vote to eliminate:</label>
-                            <select id="mafiaTarget" class="form-select mb-2">
+                            <select id="mafiaTarget" class="form-select mb-2 transition-all">
                                 <option value="">Select a player...</option>
                             </select>
-                            <button id="mafiaActionBtn" class="btn btn-danger">Submit Vote</button>
+                            <button id="mafiaActionBtn" class="btn btn-danger action-button hover-lift">Submit Vote</button>
                             <small class="form-text text-muted d-block mt-1">You can change your vote until all team members have voted.</small>
                         </div>
                     </div>
@@ -542,7 +771,11 @@
                 document.getElementById('mafiaActionBtn').addEventListener('click', function() {
                     const target = document.getElementById('mafiaTarget').value;
                     if (!target) {
-                        alert('Please select a target to eliminate.');
+                        if (window.animationManager) {
+                            window.animationManager.showNotification('Please select a target to eliminate.', 'warning');
+                        } else {
+                            alert('Please select a target to eliminate.');
+                        }
                         return;
                     }
                     submitNightAction('KILL', target);
@@ -558,15 +791,15 @@
                 }, 3000);
             } else if (currentPlayerRole === 'DOCTOR') {
                 nightActions.innerHTML = `
-                    <div class="alert alert-success">
+                    <div class="alert alert-success notification animate-slide-in-left">
                         <h5>Doctor Night Action</h5>
                         <p>Choose a player to save tonight (including yourself). You can prevent one death.</p>
                         <div class="mt-3">
                             <label for="doctorTarget">Player to save:</label>
-                            <select id="doctorTarget" class="form-select mb-2">
+                            <select id="doctorTarget" class="form-select mb-2 transition-all">
                                 <option value="">Select a player...</option>
                             </select>
-                            <button id="doctorActionBtn" class="btn btn-success">Save Player</button>
+                            <button id="doctorActionBtn" class="btn btn-success action-button hover-lift">Save Player</button>
                         </div>
                     </div>
                 `;
@@ -575,28 +808,32 @@
                 document.getElementById('doctorActionBtn').addEventListener('click', function() {
                     const target = document.getElementById('doctorTarget').value;
                     if (!target) {
-                        alert('Please select a player to save.');
+                        if (window.animationManager) {
+                            window.animationManager.showNotification('Please select a player to save.', 'warning');
+                        } else {
+                            alert('Please select a player to save.');
+                        }
                         return;
                     }
                     submitNightAction('SAVE', target);
                 });
             } else if (currentPlayerRole === 'DETECTIVE') {
                 nightActions.innerHTML = `
-                    <div class="alert alert-info">
+                    <div class="alert alert-info notification animate-slide-in-left">
                         <h5>Detective Night Action</h5>
                         <p>Choose a player to investigate tonight. You will learn if they are Mafia or not.</p>
                         <div id="investigationResult" class="mt-3" style="display: none;">
-                            <div class="alert alert-success">
+                            <div class="alert alert-success notification">
                                 <h6>Investigation Result:</h6>
                                 <div id="investigationMessage"></div>
                             </div>
                         </div>
                         <div class="mt-3">
                             <label for="detectiveTarget">Player to investigate:</label>
-                            <select id="detectiveTarget" class="form-select mb-2">
+                            <select id="detectiveTarget" class="form-select mb-2 transition-all">
                                 <option value="">Select a player...</option>
                             </select>
-                            <button id="detectiveActionBtn" class="btn btn-info">Investigate Player</button>
+                            <button id="detectiveActionBtn" class="btn btn-info action-button hover-lift">Investigate Player</button>
                         </div>
                     </div>
                 `;
@@ -605,14 +842,18 @@
                 document.getElementById('detectiveActionBtn').addEventListener('click', function() {
                     const target = document.getElementById('detectiveTarget').value;
                     if (!target) {
-                        alert('Please select a player to investigate.');
+                        if (window.animationManager) {
+                            window.animationManager.showNotification('Please select a player to investigate.', 'warning');
+                        } else {
+                            alert('Please select a player to investigate.');
+                        }
                         return;
                     }
                     submitNightAction('INVESTIGATE', target);
                 });
             } else {
                 nightActions.innerHTML = `
-                    <div class="alert alert-secondary">
+                    <div class="alert alert-secondary notification animate-fade-in">
                         <h5>Night Time</h5>
                         <p>Sleep tight! The night actions are being performed by special roles.</p>
                         <p>Wait for the day phase to begin where you can participate in discussions and voting.</p>
@@ -880,22 +1121,32 @@
             document.getElementById('nightPhase').style.display = 'none';
             document.getElementById('gameOver').style.display = 'block';
             
+            // Add game over animation
+            const gameOverElement = document.getElementById('gameOver');
+            gameOverElement.classList.add('game-over', 'animate-zoom-in');
+            
+            if (winner === 'MAFIA') {
+                gameOverElement.classList.add('lose');
+            } else if (winner === 'CITIZENS') {
+                gameOverElement.classList.add('win');
+            }
+            
             const winnerMessage = document.getElementById('winnerMessage');
             let winnerHtml = '';
             if (winner === 'MAFIA') {
-                winnerHtml = '<h5 class="text-danger">Mafia Wins!</h5><p>The Mafia has successfully taken over the town.</p>';
+                winnerHtml = '<h5 class="text-danger animate-pulse">Mafia Wins!</h5><p class="animate-fade-in">The Mafia has successfully taken over the town.</p>';
                 // Play Mafia win sound (only once per game)
                 if (window.soundManager) {
                     window.soundManager.playGameEvent('WIN_MAFIA');
                 }
             } else if (winner === 'CITIZENS') {
-                winnerHtml = '<h5 class="text-success">Citizens Win!</h5><p>All Mafia members have been eliminated!</p>';
+                winnerHtml = '<h5 class="text-success animate-bounce">Citizens Win!</h5><p class="animate-fade-in">All Mafia members have been eliminated!</p>';
                 // Play Town win sound (only once per game)
                 if (window.soundManager) {
                     window.soundManager.playGameEvent('WIN_TOWN');
                 }
             } else {
-                winnerHtml = '<h5 class="text-info">Game Over!</h5><p>The game has ended.</p>';
+                winnerHtml = '<h5 class="text-info animate-fade-in">Game Over!</h5><p class="animate-fade-in">The game has ended.</p>';
                 // Play general game end sound
                 if (window.soundManager) {
                     window.soundManager.playGameEvent('GAME_END');
@@ -906,15 +1157,16 @@
             fetch(`/api/games/${gameCode}/players-with-roles`)
                 .then(response => response.json())
                 .then(players => {
-                    let rolesHtml = '<div class="mt-4"><h6>Player Roles:</h6><div class="row">';
-                    players.forEach(player => {
+                    let rolesHtml = '<div class="mt-4 animate-slide-in-up"><h6>Player Roles:</h6><div class="row">';
+                    players.forEach((player, index) => {
                         const roleColor = player.role === 'MAFIA' ? 'text-danger' : 
                                         player.role === 'DOCTOR' ? 'text-success' : 
                                         player.role === 'DETECTIVE' ? 'text-info' : 'text-secondary';
                         const aliveStatus = player.alive ? '' : ' (Dead)';
+                        const animationDelay = index * 100;
                         rolesHtml += `
                             <div class="col-md-6 mb-2">
-                                <div class="card">
+                                <div class="card hover-lift transition-all" style="animation-delay: ${animationDelay}ms;">
                                     <div class="card-body p-2">
                                         <strong>${player.username}${aliveStatus}</strong><br>
                                         <span class="${roleColor}">${player.role}</span>
@@ -925,24 +1177,46 @@
                     });
                     rolesHtml += '</div></div>';
                     winnerMessage.innerHTML = winnerHtml + rolesHtml;
+                    
+                    // Animate role cards
+                    setTimeout(() => {
+                        document.querySelectorAll('.card').forEach((card, index) => {
+                            setTimeout(() => {
+                                card.classList.add('animate-slide-in-left');
+                            }, index * 100);
+                        });
+                    }, 500);
                 })
                 .catch(error => {
                     console.error('Error loading player roles:', error);
-                    winnerMessage.innerHTML = winnerHtml + '<p class="mt-3 text-muted">Could not load player roles.</p>';
+                    winnerMessage.innerHTML = winnerHtml + '<p class="mt-3 text-muted animate-fade-in">Could not load player roles.</p>';
                 });
         }
 
         // Vote button handler
         document.getElementById('voteBtn').addEventListener('click', function() {
             if (!isPlayerAlive) {
-                showNotification('Dead players cannot vote! You are in spectator mode.', 'error');
+                if (window.animationManager) {
+                    window.animationManager.showNotification('Dead players cannot vote! You are in spectator mode.', 'error');
+                } else {
+                    showNotification('Dead players cannot vote! You are in spectator mode.', 'error');
+                }
                 return;
             }
             
             const selectedPlayer = document.getElementById('voteSelect').value;
             if (!selectedPlayer) {
-                alert('Please select a player to vote for.');
+                if (window.animationManager) {
+                    window.animationManager.showNotification('Please select a player to vote for.', 'warning');
+                } else {
+                    alert('Please select a player to vote for.');
+                }
                 return;
+            }
+            
+            // Animate vote button
+            if (window.animationManager) {
+                window.animationManager.animateButton(this, 'pulse');
             }
             
             // Check if player has already voted
@@ -950,7 +1224,11 @@
                 .then(response => response.json())
                 .then(hasVoted => {
                     if (hasVoted) {
-                        alert('You have already voted!');
+                        if (window.animationManager) {
+                            window.animationManager.showNotification('You have already voted!', 'warning');
+                        } else {
+                            alert('You have already voted!');
+                        }
                         return;
                     }
                     
@@ -970,7 +1248,16 @@
                     })
                     .then(response => {
                         if (response.ok) {
-                            alert(`Successfully voted for ${selectedPlayer}`);
+                            // Trigger vote animation event
+                            if (window.animationManager) {
+                                document.dispatchEvent(new CustomEvent('voteEvent', {
+                                    detail: { voter: username, target: selectedPlayer, isSkip: false }
+                                }));
+                                window.animationManager.showNotification(`Successfully voted for ${selectedPlayer}`, 'success');
+                            } else {
+                                alert(`Successfully voted for ${selectedPlayer}`);
+                            }
+                            
                             document.getElementById('voteSelect').value = '';
                             loadVotingStatus();
                             loadGameState();
@@ -988,7 +1275,11 @@
                     })
                     .catch(error => {
                         console.error('Error voting:', error);
-                        alert('Error: ' + error.message);
+                        if (window.animationManager) {
+                            window.animationManager.showNotification('Error: ' + error.message, 'error');
+                        } else {
+                            alert('Error: ' + error.message);
+                        }
                         // Play error sound
                         if (window.soundManager) {
                             window.soundManager.playGameEvent('ERROR');
@@ -997,15 +1288,28 @@
                 })
                 .catch(error => {
                     console.error('Error checking vote status:', error);
-                    alert('Error checking vote status');
+                    if (window.animationManager) {
+                        window.animationManager.showNotification('Error checking vote status', 'error');
+                    } else {
+                        alert('Error checking vote status');
+                    }
                 });
         });
 
         // Skip vote button handler
         document.getElementById('skipVoteBtn').addEventListener('click', function() {
             if (!isPlayerAlive) {
-                showNotification('Dead players cannot vote! You are in spectator mode.', 'error');
+                if (window.animationManager) {
+                    window.animationManager.showNotification('Dead players cannot vote! You are in spectator mode.', 'error');
+                } else {
+                    showNotification('Dead players cannot vote! You are in spectator mode.', 'error');
+                }
                 return;
+            }
+            
+            // Animate skip vote button
+            if (window.animationManager) {
+                window.animationManager.animateButton(this, 'shake');
             }
             
             // Check if player has already voted
@@ -1013,7 +1317,11 @@
                 .then(response => response.json())
                 .then(hasVoted => {
                     if (hasVoted) {
-                        alert('You have already voted!');
+                        if (window.animationManager) {
+                            window.animationManager.showNotification('You have already voted!', 'warning');
+                        } else {
+                            alert('You have already voted!');
+                        }
                         return;
                     }
                     
@@ -1033,7 +1341,16 @@
                     })
                     .then(response => {
                         if (response.ok) {
-                            alert('Successfully skipped vote');
+                            // Trigger vote animation event
+                            if (window.animationManager) {
+                                document.dispatchEvent(new CustomEvent('voteEvent', {
+                                    detail: { voter: username, target: null, isSkip: true }
+                                }));
+                                window.animationManager.showNotification('Successfully skipped vote', 'info');
+                            } else {
+                                alert('Successfully skipped vote');
+                            }
+                            
                             loadVotingStatus();
                             loadGameState();
                             // Play skip vote sound
@@ -1050,7 +1367,11 @@
                     })
                     .catch(error => {
                         console.error('Error skipping vote:', error);
-                        alert('Error: ' + error.message);
+                        if (window.animationManager) {
+                            window.animationManager.showNotification('Error: ' + error.message, 'error');
+                        } else {
+                            alert('Error: ' + error.message);
+                        }
                         // Play error sound
                         if (window.soundManager) {
                             window.soundManager.playGameEvent('ERROR');
@@ -1059,7 +1380,11 @@
                 })
                 .catch(error => {
                     console.error('Error checking vote status:', error);
-                    alert('Error checking vote status');
+                    if (window.animationManager) {
+                        window.animationManager.showNotification('Error checking vote status', 'error');
+                    } else {
+                        alert('Error checking vote status');
+                    }
                 });
         });
 
@@ -1378,6 +1703,22 @@
             window.soundManager.playGameEvent('GAME_START');
         }
         
+        function updateSoundButtonIcon(enabled) {
+            const icon = document.getElementById('soundToggleIcon');
+            const btn = document.getElementById('soundToggleBtn');
+            if (icon && btn) {
+                if (enabled) {
+                    icon.className = 'fas fa-volume-up';
+                    btn.classList.remove('btn-outline-danger');
+                    btn.classList.add('btn-outline-secondary');
+                } else {
+                    icon.className = 'fas fa-volume-mute';
+                    btn.classList.remove('btn-outline-secondary');
+                    btn.classList.add('btn-outline-danger');
+                }
+            }
+        }
+        
         function playPhaseChangeSound(newPhase) {
             window.soundManager.playGameEvent('PHASE_CHANGE', { phase: newPhase });
         }
@@ -1500,6 +1841,34 @@
             console.log('Received private event:', event);
             // Handle private messages like investigation results
         }
+        
+        // Page initialization
+        function initializePage() {
+            console.log('Initializing game page...');
+            
+            // Initialize sound system
+            if (window.soundManager) {
+                initializeSoundSystem();
+            }
+            
+            // Initialize WebSocket for game events
+            initializeWebSocket();
+            
+            // Initialize chat system
+            initializeChat(gameCode, username);
+            
+            // Load initial game state
+            loadGameState();
+            
+            // Set up auto-refresh
+            setAutoRefreshInterval(5000);
+        }
+        
+        // Wait for page to load, then initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            // Wait a bit for all scripts to load
+            setTimeout(initializePage, 100);
+        });
     </script>
 </body>
 </html>

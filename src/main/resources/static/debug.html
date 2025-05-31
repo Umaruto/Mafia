@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Game Creation</title>
+</head>
+<body>
+    <h1>Debug Game Creation</h1>
+    <button onclick="debugCreateGame()">Create Game (Debug)</button>
+    <div id="log"></div>
+
+    <script>
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            logDiv.innerHTML += '<div>' + new Date().toISOString() + ': ' + message + '</div>';
+            console.log(message);
+        }
+
+        function debugCreateGame() {
+            log('Starting game creation...');
+            
+            const requestData = {
+                createdBy: 'debuguser',
+                minPlayers: 4,
+                maxPlayers: 8
+            };
+            
+            log('Request data: ' + JSON.stringify(requestData));
+            
+            fetch('/api/games/create', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(requestData)
+            })
+            .then(response => {
+                log('Response status: ' + response.status);
+                log('Response ok: ' + response.ok);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                log('Response data: ' + JSON.stringify(data));
+                
+                if (data.gameCode) {
+                    const redirectUrl = `/api/games/${data.gameCode}/waiting-room?username=debuguser`;
+                    log('Would redirect to: ' + redirectUrl);
+                    
+                    // Test if the waiting room URL is accessible
+                    fetch(redirectUrl)
+                    .then(waitingRoomResponse => {
+                        log('Waiting room status: ' + waitingRoomResponse.status);
+                        if (waitingRoomResponse.ok) {
+                            log('Waiting room is accessible');
+                            // Actually redirect now
+                            window.location.href = redirectUrl;
+                        } else {
+                            log('Waiting room is not accessible');
+                        }
+                    })
+                    .catch(waitingRoomError => {
+                        log('Waiting room error: ' + waitingRoomError.message);
+                    });
+                } else {
+                    log('No gameCode in response');
+                }
+            })
+            .catch(error => {
+                log('Error: ' + error.message);
+            });
+        }
+    </script>
+</body>
+</html> 

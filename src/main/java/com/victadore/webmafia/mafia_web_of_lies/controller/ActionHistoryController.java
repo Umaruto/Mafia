@@ -2,6 +2,7 @@ package com.victadore.webmafia.mafia_web_of_lies.controller;
 
 import com.victadore.webmafia.mafia_web_of_lies.model.ActionHistory;
 import com.victadore.webmafia.mafia_web_of_lies.model.Game;
+import com.victadore.webmafia.mafia_web_of_lies.model.GameState;
 import com.victadore.webmafia.mafia_web_of_lies.repository.GameRepository;
 import com.victadore.webmafia.mafia_web_of_lies.service.ActionHistoryService;
 import com.victadore.webmafia.mafia_web_of_lies.service.ValidationService;
@@ -61,7 +62,7 @@ public class ActionHistoryController {
         Game game = gameRepository.findById(gameId)
             .orElseThrow(() -> new GameException("Game not found"));
             
-        if (!"FINISHED".equals(game.getGameState())) {
+        if (!GameState.FINISHED.equals(game.getGameState())) {
             throw new GameException("Full history is only available for finished games");
         }
         

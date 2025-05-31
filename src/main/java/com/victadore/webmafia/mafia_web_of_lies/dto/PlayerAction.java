@@ -13,7 +13,7 @@ import lombok.NoArgsConstructor;
 public class PlayerAction {
     @NotBlank(message = "Username is required")
     @Size(min = 2, max = 20, message = "Username must be between 2 and 20 characters")
-    @Pattern(regexp = "^[a-zA-Z0-9_-]+$", message = "Username can only contain letters, numbers, underscores, and hyphens")
+    @Pattern(regexp = "^[a-zA-Z0-9_\\-]+$", message = "Username can only contain letters, numbers, underscores, and hyphens")
     private String username;
     
     @NotBlank(message = "Action is required")

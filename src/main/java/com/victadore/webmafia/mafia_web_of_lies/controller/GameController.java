@@ -29,7 +29,7 @@ public class GameController {
         this.validationService = validationService;
     }
 
-    @PostMapping
+    @PostMapping("/create")
     @ResponseBody
     public ResponseEntity<Map<String, Object>> createGame(@Valid @RequestBody GameCreateRequest request) {
         try {
@@ -98,49 +98,14 @@ public class GameController {
         }
     }
 
-    @PostMapping("/{gameCode}/join")
+    @PostMapping("/join")
     @ResponseBody
-    public ResponseEntity<Map<String, Object>> joinGame(
-            @PathVariable @Pattern(regexp = "^[A-Z0-9]{6}$", message = "Invalid game code format") String gameCode, 
-            @Valid @RequestBody GameJoinRequest request) {
+    public ResponseEntity<Map<String, Object>> joinGameGeneral(@Valid @RequestBody GameJoinRequest request) {
         try {
-            // Validate that path variable matches request body
-            if (!gameCode.equals(request.getGameCode())) {
-                throw new ValidationException("Game code in URL must match game code in request body");
-            }
-            
-            validationService.validateGameCode(gameCode);
+            validationService.validateGameCode(request.getGameCode());
             validationService.validateUsername(request.getUsername());
             
-            Game game = gameService.joinGame(gameCode, request.getUsername());
-            Map<String, Object> response = new HashMap<>();
-            response.put("gameCode", game.getGameCode());
-            response.put("message", "Successfully joined the game");
-            return ResponseEntity.ok()
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(response);
-        } catch (ValidationException e) {
-            throw e;
-        } catch (GameException e) {
-            Map<String, Object> error = new HashMap<>();
-            error.put("message", e.getMessage());
-            return ResponseEntity.badRequest()
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(error);
-        }
-    }
-
-    // Backup endpoint for form-based joining (for existing frontend compatibility)
-    @PostMapping("/{gameCode}/join/legacy")
-    @ResponseBody
-    public ResponseEntity<Map<String, Object>> joinGameLegacy(
-            @PathVariable String gameCode, 
-            @RequestParam String username) {
-        try {
-            validationService.validateGameCode(gameCode);
-            validationService.validateUsername(username);
-            
-            Game game = gameService.joinGame(gameCode, username);
+            Game game = gameService.joinGame(request.getGameCode(), request.getUsername());
             Map<String, Object> response = new HashMap<>();
             response.put("gameCode", game.getGameCode());
             response.put("message", "Successfully joined the game");

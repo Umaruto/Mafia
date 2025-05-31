@@ -6,21 +6,355 @@
     <title>Mafia Game - Welcome</title>
     <link rel="icon" type="image/x-icon" href="/favicon/favicon.ico">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="/css/styles.css" rel="stylesheet">
+    <style>
+        .feature-card {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            text-align: center;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
+            height: 100%;
+        }
+        
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+        }
+        
+        .feature-icon {
+            font-size: 3rem;
+            margin-bottom: 20px;
+        }
+        
+        .feature-title {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+        
+        .feature-description {
+            color: #6c757d;
+            margin-bottom: 25px;
+        }
+        
+        .navbar-brand {
+            font-weight: bold;
+            font-size: 1.5rem;
+        }
+        
+        .hero-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 80px 0;
+            text-align: center;
+        }
+        
+        .hero-title {
+            font-size: 3.5rem;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+        
+        .hero-subtitle {
+            font-size: 1.3rem;
+            margin-bottom: 40px;
+            opacity: 0.9;
+        }
+        
+        .features-section {
+            padding: 80px 0;
+            background: #f8f9fa;
+        }
+    </style>
 </head>
 <body>
-    <div class="welcome-container">
-        <div class="welcome-content">
-            <h1 class="welcome-title">Welcome to Mafia Game</h1>
-            <p class="welcome-subtitle">A game of deception, strategy, and survival</p>
-            <div class="d-grid gap-2 d-sm-flex justify-content-sm-center">
-                <button type="button" class="btn btn-primary">Start New Game</button>
-                <button type="button" class="btn btn-outline-primary">Join Game</button>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-mask"></i> Mafia Web of Lies
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <div class="navbar-nav ms-auto">
+                    <a class="nav-link active" href="/"><i class="fas fa-home"></i> Home</a>
+                    <a class="nav-link" href="/statistics"><i class="fas fa-chart-bar"></i> Statistics</a>
+                    <a class="nav-link" href="/history"><i class="fas fa-history"></i> Game History</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero-section">
+        <div class="container">
+            <h1 class="hero-title">Welcome to Mafia Web of Lies</h1>
+            <p class="hero-subtitle">A game of deception, strategy, and survival</p>
+            <div class="d-grid gap-3 d-sm-flex justify-content-sm-center">
+                <button type="button" class="btn btn-light btn-lg" onclick="showCreateGameModal()">
+                    <i class="fas fa-plus"></i> Start New Game
+                </button>
+                <button type="button" class="btn btn-outline-light btn-lg" onclick="showJoinGameModal()">
+                    <i class="fas fa-sign-in-alt"></i> Join Game
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="features-section">
+        <div class="container">
+            <div class="row text-center mb-5">
+                <div class="col-12">
+                    <h2>Explore the Game</h2>
+                    <p class="text-muted">Discover all the features available in Mafia Web of Lies</p>
+                </div>
+            </div>
+            
+            <div class="row g-4">
+                <div class="col-lg-3 col-md-6">
+                    <div class="feature-card">
+                        <div class="feature-icon text-primary">
+                            <i class="fas fa-gamepad"></i>
+                        </div>
+                        <h3 class="feature-title">Play Games</h3>
+                        <p class="feature-description">Create or join multiplayer Mafia games with friends and players worldwide</p>
+                        <button class="btn btn-primary" onclick="showCreateGameModal()">
+                            <i class="fas fa-play"></i> Start Playing
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="col-lg-3 col-md-6">
+                    <div class="feature-card">
+                        <div class="feature-icon text-success">
+                            <i class="fas fa-trophy"></i>
+                        </div>
+                        <h3 class="feature-title">Player Statistics</h3>
+                        <p class="feature-description">Track your performance, view leaderboards, and see detailed player analytics</p>
+                        <a href="/statistics" class="btn btn-success">
+                            <i class="fas fa-chart-bar"></i> View Stats
+                        </a>
+                    </div>
+                </div>
+                
+                <div class="col-lg-3 col-md-6">
+                    <div class="feature-card">
+                        <div class="feature-icon text-info">
+                            <i class="fas fa-history"></i>
+                        </div>
+                        <h3 class="feature-title">Game History</h3>
+                        <p class="feature-description">Browse past games, watch detailed replays, and analyze gameplay strategies</p>
+                        <a href="/history" class="btn btn-info">
+                            <i class="fas fa-search"></i> Browse History
+                        </a>
+                    </div>
+                </div>
+                
+                <div class="col-lg-3 col-md-6">
+                    <div class="feature-card">
+                        <div class="feature-icon text-warning">
+                            <i class="fas fa-users"></i>
+                        </div>
+                        <h3 class="feature-title">Community</h3>
+                        <p class="feature-description">Connect with other players, share strategies, and compete in tournaments</p>
+                        <button class="btn btn-warning" onclick="showJoinGameModal()">
+                            <i class="fas fa-users"></i> Join Community
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Game Modals -->
+    <div class="modal fade" id="createGameModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-plus"></i> Create New Game</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="createGameForm" onsubmit="event.preventDefault(); createGame();">
+                        <div class="mb-3">
+                            <label for="creatorUsername" class="form-label">Your Username</label>
+                            <input type="text" class="form-control" id="creatorUsername" required 
+                                   pattern="[a-zA-Z0-9_\-]+" minlength="2" maxlength="20"
+                                   placeholder="Enter your username">
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label for="minPlayers" class="form-label">Min Players</label>
+                                <select class="form-select" id="minPlayers" required>
+                                    <option value="4">4 Players</option>
+                                    <option value="5">5 Players</option>
+                                    <option value="6" selected>6 Players</option>
+                                    <option value="7">7 Players</option>
+                                    <option value="8">8 Players</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="maxPlayers" class="form-label">Max Players</label>
+                                <select class="form-select" id="maxPlayers" required>
+                                    <option value="6">6 Players</option>
+                                    <option value="7">7 Players</option>
+                                    <option value="8" selected>8 Players</option>
+                                    <option value="10">10 Players</option>
+                                    <option value="12">12 Players</option>
+                                    <option value="15">15 Players</option>
+                                </select>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="createGame()">
+                        <i class="fas fa-plus"></i> Create Game
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="joinGameModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-sign-in-alt"></i> Join Game</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="joinGameForm" onsubmit="event.preventDefault(); joinGame();">
+                        <div class="mb-3">
+                            <label for="playerUsername" class="form-label">Your Username</label>
+                            <input type="text" class="form-control" id="playerUsername" required 
+                                   pattern="[a-zA-Z0-9_\-]+" minlength="2" maxlength="20"
+                                   placeholder="Enter your username">
+                        </div>
+                        <div class="mb-3">
+                            <label for="gameCode" class="form-label">Game Code</label>
+                            <input type="text" class="form-control" id="gameCode" required 
+                                   pattern="[A-Z0-9]{6}" maxlength="6"
+                                   placeholder="Enter 6-character game code" style="text-transform: uppercase;">
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="joinGame()">
+                        <i class="fas fa-sign-in-alt"></i> Join Game
+                    </button>
+                </div>
             </div>
         </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="/js/app.js"></script>
+    <script>
+        function showCreateGameModal() {
+            new bootstrap.Modal(document.getElementById('createGameModal')).show();
+        }
+        
+        function showJoinGameModal() {
+            new bootstrap.Modal(document.getElementById('joinGameModal')).show();
+        }
+        
+        function createGame() {
+            const form = document.getElementById('createGameForm');
+            if (!form.checkValidity()) {
+                form.reportValidity();
+                return;
+            }
+            
+            const username = document.getElementById('creatorUsername').value;
+            const minPlayers = document.getElementById('minPlayers').value;
+            const maxPlayers = document.getElementById('maxPlayers').value;
+            
+            // Create game via API
+            fetch('/api/games/create', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    createdBy: username,
+                    minPlayers: parseInt(minPlayers),
+                    maxPlayers: parseInt(maxPlayers)
+                })
+            })
+            .then(response => {
+                console.log('Response status:', response.status);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Response data:', data);
+                if (data.gameCode) {
+                    console.log('Redirecting to:', `/api/games/${data.gameCode}/waiting-room?username=${encodeURIComponent(username)}`);
+                    // Redirect to waiting room
+                    window.location.href = `/api/games/${data.gameCode}/waiting-room?username=${encodeURIComponent(username)}`;
+                } else {
+                    alert('Failed to create game. Please try again.');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Failed to create game. Please try again.');
+            });
+        }
+        
+        function joinGame() {
+            const form = document.getElementById('joinGameForm');
+            if (!form.checkValidity()) {
+                form.reportValidity();
+                return;
+            }
+            
+            const username = document.getElementById('playerUsername').value;
+            const gameCode = document.getElementById('gameCode').value;
+            
+            // Join game via API
+            fetch('/api/games/join', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    gameCode: gameCode,
+                    username: username
+                })
+            })
+            .then(response => {
+                console.log('Join response status:', response.status);
+                if (response.ok) {
+                    console.log('Redirecting to:', `/api/games/${gameCode}/waiting-room?username=${encodeURIComponent(username)}`);
+                    // Redirect to waiting room
+                    window.location.href = `/api/games/${gameCode}/waiting-room?username=${encodeURIComponent(username)}`;
+                } else {
+                    return response.text().then(text => {
+                        throw new Error(text || 'Failed to join game');
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert(error.message || 'Failed to join game. Please check the game code and try again.');
+            });
+        }
+        
+        // Auto-uppercase game code input
+        document.getElementById('gameCode').addEventListener('input', function(e) {
+            e.target.value = e.target.value.toUpperCase();
+        });
+    </script>
 </body>
 </html>

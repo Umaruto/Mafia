@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Player Not Found - Mafia Web of Lies</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="/css/styles.css" rel="stylesheet">
+    <style>
+        .error-container {
+            min-height: 60vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .error-card {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            padding: 60px 40px;
+            text-align: center;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        
+        .error-icon {
+            font-size: 5rem;
+            color: #ffc107;
+            margin-bottom: 30px;
+        }
+        
+        .error-title {
+            color: #495057;
+            margin-bottom: 20px;
+        }
+        
+        .error-message {
+            color: #6c757d;
+            font-size: 1.1rem;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+        
+        .username-highlight {
+            background: #e3f2fd;
+            color: #1976d2;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        
+        .info-box {
+            background: #f8f9fa;
+            border-left: 4px solid #17a2b8;
+            padding: 15px;
+            margin: 30px 0;
+            border-radius: 0 8px 8px 0;
+        }
+        
+        .action-buttons {
+            margin-top: 30px;
+        }
+        
+        .btn-custom {
+            margin: 5px;
+            border-radius: 25px;
+            padding: 10px 25px;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-mask"></i> Mafia Web of Lies
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="/"><i class="fas fa-home"></i> Home</a>
+                <a class="nav-link active" href="/statistics"><i class="fas fa-chart-bar"></i> Statistics</a>
+                <a class="nav-link" href="/history"><i class="fas fa-history"></i> Game History</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="error-container">
+            <div class="error-card">
+                <i class="fas fa-user-slash error-icon"></i>
+                
+                <h2 class="error-title">Player Statistics Not Found</h2>
+                
+                <div class="error-message">
+                    <p>We couldn't find statistics for player <span class="username-highlight" th:text="${username}">Username</span>.</p>
+                    <p th:if="${error}" th:text="${error}">This player hasn't completed any games yet.</p>
+                </div>
+
+                <div class="info-box">
+                    <h6><i class="fas fa-info-circle text-info"></i> How Player Statistics Work</h6>
+                    <p class="mb-0">Statistics are created when a player completes their first game. To appear in the leaderboards, players need to finish games from start to end.</p>
+                </div>
+
+                <div class="info-box">
+                    <h6><i class="fas fa-lightbulb text-warning"></i> Possible Reasons</h6>
+                    <ul class="text-start mb-0">
+                        <li>The player hasn't played any games yet</li>
+                        <li>The player only joined games but didn't finish them</li>
+                        <li>The username was spelled incorrectly</li>
+                        <li>The player data is still being processed</li>
+                    </ul>
+                </div>
+
+                <div class="action-buttons">
+                    <a href="/statistics" class="btn btn-primary btn-custom">
+                        <i class="fas fa-chart-bar"></i> View All Statistics
+                    </a>
+                    <a href="/statistics/leaderboards" class="btn btn-outline-secondary btn-custom">
+                        <i class="fas fa-medal"></i> Browse Leaderboards
+                    </a>
+                    <a href="/" class="btn btn-success btn-custom">
+                        <i class="fas fa-play"></i> Start Playing
+                    </a>
+                </div>
+
+                <!-- Search for another player -->
+                <div class="mt-4 pt-4 border-top">
+                    <h6 class="text-muted mb-3">Search for another player:</h6>
+                    <form action="/statistics/player" method="get" class="d-flex gap-2">
+                        <input type="text" name="username" class="form-control" 
+                               placeholder="Enter username..." required 
+                               style="border-radius: 25px;">
+                        <button type="submit" class="btn btn-outline-primary" style="border-radius: 25px;">
+                            <i class="fas fa-search"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html> 

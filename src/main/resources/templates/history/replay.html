@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game Replay - Mafia: Web of Lies</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .game-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem;
+            border-radius: 15px;
+            margin-bottom: 2rem;
+        }
+        
+        .game-code {
+            font-size: 2.5rem;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .winner-badge {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            border-radius: 25px;
+            font-weight: bold;
+            margin: 0.5rem 0;
+        }
+        
+        .winner-mafia {
+            background-color: #dc3545;
+            color: white;
+        }
+        
+        .winner-citizens {
+            background-color: #28a745;
+            color: white;
+        }
+        
+        .player-card {
+            border: 1px solid #dee2e6;
+            border-radius: 10px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .role-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 15px;
+            font-size: 0.875rem;
+            font-weight: bold;
+        }
+        
+        .role-mafia {
+            background-color: #dc3545;
+            color: white;
+        }
+        
+        .role-detective {
+            background-color: #007bff;
+            color: white;
+        }
+        
+        .role-doctor {
+            background-color: #28a745;
+            color: white;
+        }
+        
+        .role-citizen {
+            background-color: #6c757d;
+            color: white;
+        }
+        
+        .status-alive {
+            color: #28a745;
+            font-weight: bold;
+        }
+        
+        .status-dead {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        
+        .timeline-item {
+            border-left: 3px solid #007bff;
+            padding-left: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .stat-card {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 1.5rem;
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+        
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #007bff;
+        }
+        
+        .stat-label {
+            color: #6c757d;
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-4">
+        <!-- Error State -->
+        <div th:if="${error}" class="alert alert-danger">
+            <h4><i class="fas fa-exclamation-triangle"></i> Error</h4>
+            <p th:text="${error}">Error message</p>
+            <a href="/history" class="btn btn-primary">
+                <i class="fas fa-arrow-left"></i> Back to History
+            </a>
+        </div>
+
+        <!-- Game Content -->
+        <div th:if="${replay}">
+            <!-- Game Header -->
+            <div class="game-header text-center">
+                <div class="game-code" th:text="${replay.gameCode}">ABC123</div>
+                <p class="mb-2">
+                    <i class="fas fa-user"></i> Created by <strong th:text="${replay.createdBy}">Player</strong>
+                </p>
+                <div class="winner-badge" th:class="'winner-badge ' + (${replay.winner == 'MAFIA'} ? 'winner-mafia' : 'winner-citizens')">
+                    <i class="fas fa-crown"></i>
+                    <span th:text="${replay.winner == 'MAFIA'} ? 'Mafia Victory' : 'Citizens Victory'">Winner</span>
+                </div>
+            </div>
+            
+            <!-- Game Statistics -->
+            <div class="row mb-4">
+                <div class="col-md-4">
+                    <div class="stat-card">
+                        <div class="stat-number" th:text="${replay.totalDays != null ? replay.totalDays : 0}">3</div>
+                        <div class="stat-label">Days Played</div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="stat-card">
+                        <div class="stat-number" th:text="${replay.players != null ? replay.players.size() : 0}">8</div>
+                        <div class="stat-label">Total Players</div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="stat-card">
+                        <div class="stat-number" th:text="${replay.timeline != null ? replay.timeline.size() : 0}">24</div>
+                        <div class="stat-label">Total Events</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Players Section -->
+            <div class="row">
+                <div class="col-lg-6">
+                    <h5><i class="fas fa-users"></i> Players</h5>
+                    <div th:if="${replay.players != null and !replay.players.isEmpty()}">
+                        <div th:each="player : ${replay.players}" class="player-card">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-1">
+                                        <i class="fas fa-user"></i>
+                                        <span th:text="${player.username}">Player</span>
+                                    </h6>
+                                    <span class="role-badge" 
+                                          th:class="'role-badge ' + 
+                                                   (${player.role == 'MAFIA'} ? 'role-mafia' : 
+                                                   (${player.role == 'DETECTIVE'} ? 'role-detective' : 
+                                                   (${player.role == 'DOCTOR'} ? 'role-doctor' : 'role-citizen')))"
+                                          th:text="${player.role != null ? player.role : 'Unknown'}">Role</span>
+                                </div>
+                                <div>
+                                    <span th:class="${player.isAlive != null and player.isAlive} ? 'status-alive' : 'status-dead'">
+                                        <i th:class="${player.isAlive != null and player.isAlive} ? 'fas fa-heart' : 'fas fa-skull'"></i>
+                                        <span th:text="${player.isAlive != null and player.isAlive} ? 'Alive' : 'Dead'">Status</span>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div th:if="${replay.players == null or replay.players.isEmpty()}" class="text-muted text-center py-3">
+                        <i class="fas fa-info-circle"></i> No player information available
+                    </div>
+                </div>
+                
+                <!-- Game Timeline -->
+                <div class="col-lg-6">
+                    <h5><i class="fas fa-clock"></i> Game Timeline</h5>
+                    <div class="timeline" style="max-height: 400px; overflow-y: auto;">
+                        <div th:if="${replay.timeline != null and !replay.timeline.isEmpty()}">
+                            <div th:each="event : ${replay.timeline}" class="timeline-item">
+                                <small class="text-muted">
+                                    Day <span th:text="${event.gameDay != null ? event.gameDay : 1}">1</span>
+                                </small>
+                                <div th:text="${event.description != null ? event.description : 'Game event'}">Event description</div>
+                            </div>
+                        </div>
+                        <div th:if="${replay.timeline == null or replay.timeline.isEmpty()}" class="text-muted text-center py-3">
+                            <i class="fas fa-info-circle"></i> No timeline events available
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Navigation -->
+            <div class="mt-4 text-center">
+                <a href="/history" class="btn btn-primary me-2">
+                    <i class="fas fa-arrow-left"></i> Back to History
+                </a>
+                <a href="/history/search" class="btn btn-outline-secondary">
+                    <i class="fas fa-search"></i> Search Games
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html> 

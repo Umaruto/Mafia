@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game History Browser - Mafia Web of Lies</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="/css/styles.css" rel="stylesheet">
+    <style>
+        .game-card {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            overflow: hidden;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        
+        .game-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+        }
+        
+        .game-header {
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .game-code {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .game-meta {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+        
+        .game-body {
+            padding: 20px;
+        }
+        
+        .winner-badge {
+            padding: 6px 15px;
+            border-radius: 25px;
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
+        
+        .winner-mafia {
+            background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+            color: white;
+        }
+        
+        .winner-citizens {
+            background: linear-gradient(135deg, #4ecdc4, #44a08d);
+            color: white;
+        }
+        
+        .winner-town {
+            background: linear-gradient(135deg, #4ecdc4, #44a08d);
+            color: white;
+        }
+        
+        .game-stats {
+            display: flex;
+            justify-content: space-between;
+            margin: 15px 0;
+        }
+        
+        .stat-item {
+            text-align: center;
+        }
+        
+        .stat-number {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .stat-label {
+            font-size: 0.8rem;
+            color: #6c757d;
+        }
+        
+        .search-container {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        
+        .filter-chip {
+            display: inline-block;
+            background: #e9ecef;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            margin: 2px;
+        }
+        
+        .filter-chip.active {
+            background: #667eea;
+            color: white;
+        }
+        
+        .pagination-container {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            margin-top: 30px;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #6c757d;
+        }
+        
+        .empty-state i {
+            font-size: 4rem;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-mask"></i> Mafia Web of Lies
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="/"><i class="fas fa-home"></i> Home</a>
+                <a class="nav-link" href="/statistics"><i class="fas fa-chart-bar"></i> Statistics</a>
+                <a class="nav-link active" href="/history"><i class="fas fa-history"></i> Game History</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-12">
+                <h1 class="text-center mb-4">
+                    <i class="fas fa-history text-primary"></i>
+                    Game History Browser
+                </h1>
+            </div>
+        </div>
+
+        <!-- Search and Filters -->
+        <div class="search-container">
+            <h5><i class="fas fa-search"></i> Search Games</h5>
+            <form action="/history/search" method="get" class="row g-3">
+                <div class="col-md-3">
+                    <label for="createdBy" class="form-label">Created By</label>
+                    <input type="text" class="form-control" id="createdBy" name="createdBy" placeholder="Username...">
+                </div>
+                <div class="col-md-3">
+                    <label for="winner" class="form-label">Winner</label>
+                    <select class="form-select" id="winner" name="winner">
+                        <option value="">Any</option>
+                        <option value="MAFIA">Mafia</option>
+                        <option value="CITIZENS">Citizens</option>
+                        <option value="TOWN">Town</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label for="minDays" class="form-label">Min Days</label>
+                    <input type="number" class="form-control" id="minDays" name="minDays" min="1" max="20">
+                </div>
+                <div class="col-md-2">
+                    <label for="maxDays" class="form-label">Max Days</label>
+                    <input type="number" class="form-control" id="maxDays" name="maxDays" min="1" max="20">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">&nbsp;</label>
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-search"></i> Search
+                    </button>
+                </div>
+            </form>
+            
+            <div class="mt-3">
+                <small class="text-muted">Quick filters:</small><br>
+                <a href="/history?page=0&size=20" class="filter-chip">All Games</a>
+                <a href="/history/search?winner=MAFIA&limit=20" class="filter-chip">Mafia Wins</a>
+                <a href="/history/search?winner=CITIZENS&limit=20" class="filter-chip">Citizen Wins</a>
+                <a href="/history/search?minDays=5&limit=20" class="filter-chip">Long Games (5+ days)</a>
+                <a href="/history/search?maxDays=2&limit=20" class="filter-chip">Quick Games (≤2 days)</a>
+            </div>
+        </div>
+
+        <!-- Games List -->
+        <div class="row">
+            <div th:if="${games != null and !games.isEmpty()}">
+                <div class="col-lg-6" th:each="game : ${games}">
+                    <div class="game-card">
+                        <div class="game-header">
+                            <div class="game-code" th:text="${game.gameCode}">ABC123</div>
+                            <div class="game-meta">
+                                Created by <strong th:text="${game.createdBy}">Player</strong> •
+                                <span th:if="${game.duration}" th:text="${game.duration}">30 minutes</span>
+                            </div>
+                        </div>
+                        <div class="game-body">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <span class="winner-badge" th:classappend="${game.winner == 'MAFIA'} ? 'winner-mafia' : 'winner-citizens'">
+                                    <i class="fas fa-crown"></i>
+                                    <span th:text="${game.winner == 'MAFIA'} ? 'Mafia Victory' : 'Citizens Victory'">Winner</span>
+                                </span>
+                                <small class="text-muted" th:if="${game.endTime}">
+                                    <i class="fas fa-calendar"></i>
+                                    <span th:text="${#temporals.format(game.endTime, 'MMM dd, yyyy HH:mm')}">Date</span>
+                                </small>
+                            </div>
+                            
+                            <div class="game-stats">
+                                <div class="stat-item">
+                                    <div class="stat-number" th:text="${game.totalDays}">3</div>
+                                    <div class="stat-label">Days</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-number" th:text="${game.playerCount}">8</div>
+                                    <div class="stat-label">Players</div>
+                                </div>
+                                <div class="stat-item" th:if="${game.duration}">
+                                    <div class="stat-number" th:text="${game.duration}">45m</div>
+                                    <div class="stat-label">Duration</div>
+                                </div>
+                            </div>
+                            
+                            <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                                <a th:href="@{/history/game/{gameCode}(gameCode=${game.gameCode})}" 
+                                   class="btn btn-outline-primary btn-sm">
+                                    <i class="fas fa-play"></i> View Replay
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Empty State -->
+            <div th:if="${games == null or games.isEmpty()}" class="col-12">
+                <div class="empty-state">
+                    <i class="fas fa-search"></i>
+                    <h4>No Games Found</h4>
+                    <p>No finished games match your criteria. Try adjusting your search filters or check back later.</p>
+                    <a href="/history" class="btn btn-primary">
+                        <i class="fas fa-refresh"></i> View All Games
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pagination -->
+        <div class="pagination-container" th:if="${games != null and !games.isEmpty()}">
+            <nav aria-label="Game history pagination">
+                <ul class="pagination justify-content-center mb-0">
+                    <li class="page-item" th:classappend="${currentPage == 0} ? 'disabled'">
+                        <a class="page-link" th:href="@{/history(page=${currentPage - 1}, size=${pageSize})}">
+                            <i class="fas fa-chevron-left"></i> Previous
+                        </a>
+                    </li>
+                    
+                    <!-- Page numbers -->
+                    <li class="page-item" th:if="${currentPage > 0}">
+                        <a class="page-link" th:href="@{/history(page=0, size=${pageSize})}">1</a>
+                    </li>
+                    <li class="page-item disabled" th:if="${currentPage > 2}">
+                        <span class="page-link">...</span>
+                    </li>
+                    <li class="page-item" th:if="${currentPage > 1}">
+                        <a class="page-link" th:href="@{/history(page=${currentPage - 1}, size=${pageSize})}" th:text="${currentPage}">2</a>
+                    </li>
+                    <li class="page-item active">
+                        <span class="page-link" th:text="${currentPage + 1}">3</span>
+                    </li>
+                    <li class="page-item" th:if="${hasNextPage}">
+                        <a class="page-link" th:href="@{/history(page=${currentPage + 1}, size=${pageSize})}" th:text="${currentPage + 2}">4</a>
+                    </li>
+                    
+                    <li class="page-item" th:classappend="${!hasNextPage} ? 'disabled'">
+                        <a class="page-link" th:href="@{/history(page=${currentPage + 1}, size=${pageSize})}">
+                            Next <i class="fas fa-chevron-right"></i>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+            
+            <div class="text-center mt-3">
+                <small class="text-muted">
+                    Page <span th:text="${currentPage + 1}">1</span> • 
+                    Showing <span th:text="${pageSize}">20</span> games per page
+                </small>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="search-container mt-4">
+            <h5><i class="fas fa-bolt"></i> Quick Actions</h5>
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="card h-100">
+                        <div class="card-body text-center">
+                            <i class="fas fa-user-circle fa-2x text-primary mb-3"></i>
+                            <h6>Player History</h6>
+                            <p class="text-muted small">View game history for a specific player</p>
+                            <form action="/history/player" method="get" class="d-flex">
+                                <input type="text" class="form-control form-control-sm me-2" name="username" placeholder="Username" required>
+                                <button type="submit" class="btn btn-primary btn-sm">Go</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card h-100">
+                        <div class="card-body text-center">
+                            <i class="fas fa-code fa-2x text-success mb-3"></i>
+                            <h6>Game Replay</h6>
+                            <p class="text-muted small">Enter a game code to view detailed replay</p>
+                            <form action="/history/game" method="get" class="d-flex">
+                                <input type="text" class="form-control form-control-sm me-2" name="gameCode" placeholder="Game Code" required maxlength="6" style="text-transform: uppercase;">
+                                <button type="submit" class="btn btn-success btn-sm">View</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card h-100">
+                        <div class="card-body text-center">
+                            <i class="fas fa-chart-line fa-2x text-warning mb-3"></i>
+                            <h6>Statistics</h6>
+                            <p class="text-muted small">View player statistics and leaderboards</p>
+                            <a href="/statistics" class="btn btn-warning btn-sm">
+                                <i class="fas fa-chart-bar"></i> View Stats
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Auto-uppercase game code input
+        document.querySelector('input[name="gameCode"]').addEventListener('input', function(e) {
+            e.target.value = e.target.value.toUpperCase();
+        });
+        
+        // Handle player history form submission
+        document.querySelector('form[action="/history/player"]').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const username = this.querySelector('input[name="username"]').value.trim();
+            if (username) {
+                window.location.href = `/history/player/${encodeURIComponent(username)}`;
+            } else {
+                alert('Please enter a username');
+            }
+        });
+        
+        // Handle game replay form submission
+        document.querySelector('form[action="/history/game"]').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const gameCode = this.querySelector('input[name="gameCode"]').value.trim();
+            if (gameCode && gameCode.length === 6) {
+                window.location.href = `/history/game/${gameCode}`;
+            } else {
+                alert('Please enter a valid 6-character game code');
+            }
+        });
+    </script>
+</body>
+</html> 

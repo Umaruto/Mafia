@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Player History - Mafia: Web of Lies</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .player-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem;
+            border-radius: 15px;
+            margin-bottom: 2rem;
+        }
+        
+        .player-name {
+            font-size: 2.5rem;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .stat-card {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 1.5rem;
+            text-align: center;
+            margin-bottom: 1rem;
+            transition: transform 0.2s;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #007bff;
+        }
+        
+        .stat-label {
+            color: #6c757d;
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .game-card {
+            border: 1px solid #dee2e6;
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            transition: transform 0.2s;
+        }
+        
+        .game-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        
+        .game-code {
+            font-size: 1.25rem;
+            font-weight: bold;
+            color: #007bff;
+        }
+        
+        .role-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 15px;
+            font-size: 0.875rem;
+            font-weight: bold;
+        }
+        
+        .role-mafia {
+            background-color: #dc3545;
+            color: white;
+        }
+        
+        .role-detective {
+            background-color: #007bff;
+            color: white;
+        }
+        
+        .role-doctor {
+            background-color: #28a745;
+            color: white;
+        }
+        
+        .role-citizen {
+            background-color: #6c757d;
+            color: white;
+        }
+        
+        .result-won {
+            color: #28a745;
+            font-weight: bold;
+        }
+        
+        .result-lost {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        
+        .winner-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 15px;
+            font-size: 0.875rem;
+            font-weight: bold;
+        }
+        
+        .winner-mafia {
+            background-color: #dc3545;
+            color: white;
+        }
+        
+        .winner-citizens {
+            background-color: #28a745;
+            color: white;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: #6c757d;
+        }
+        
+        .empty-state i {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-4">
+        <!-- Player Header -->
+        <div class="player-header text-center">
+            <div class="player-name">
+                <i class="fas fa-user-circle"></i>
+                <span th:text="${username}">Player</span>
+            </div>
+            <p class="mb-0">Player History</p>
+        </div>
+        
+        <!-- Error Message -->
+        <div th:if="${error}" class="alert alert-warning">
+            <h5><i class="fas fa-exclamation-triangle"></i> Notice</h5>
+            <p th:text="${error}">Error message</p>
+        </div>
+        
+        <!-- Player Statistics -->
+        <div class="row mb-4" th:if="${playerGames != null and !playerGames.isEmpty()}">
+            <div class="col-md-12">
+                <div class="stat-card">
+                    <div class="stat-number" th:text="${playerGames.size()}">4</div>
+                    <div class="stat-label">Total Games Played</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Games List -->
+        <div th:if="${playerGames != null and !playerGames.isEmpty()}">
+            <h5><i class="fas fa-history"></i> Game History</h5>
+            <div class="row">
+                <div class="col-lg-6" th:each="game : ${playerGames}">
+                    <div class="game-card">
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <div>
+                                <div class="game-code" th:text="${game.gameCode}">ABC123</div>
+                                <small class="text-muted">
+                                    <i class="fas fa-user"></i> Created by 
+                                    <span th:text="${game.createdBy}">Creator</span>
+                                </small>
+                            </div>
+                            <div class="text-end">
+                                <div class="winner-badge" th:classappend="${game.winner == 'MAFIA'} ? 'winner-mafia' : 'winner-citizens'">
+                                    <i class="fas fa-crown"></i>
+                                    <span th:text="${game.winner == 'MAFIA'} ? 'Mafia' : 'Citizens'">Winner</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-6">
+                                <strong>Your Role:</strong><br>
+                                <span class="role-badge" 
+                                      th:classappend="${game.playerRole == 'MAFIA'} ? 'role-mafia' : 
+                                                     (${game.playerRole == 'DETECTIVE'} ? 'role-detective' : 
+                                                     (${game.playerRole == 'DOCTOR'} ? 'role-doctor' : 'role-citizen'))"
+                                      th:text="${game.playerRole}">Role</span>
+                            </div>
+                            <div class="col-6">
+                                <strong>Result:</strong><br>
+                                <span th:classappend="${game.playerWon} ? 'result-won' : 'result-lost'">
+                                    <i th:class="${game.playerWon} ? 'fas fa-trophy' : 'fas fa-times'"></i>
+                                    <span th:text="${game.playerWon ? 'Won' : 'Lost'}">Result</span>
+                                </span>
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-4 text-center">
+                                <div class="fw-bold" th:text="${game.totalDays}">3</div>
+                                <small class="text-muted">Days</small>
+                            </div>
+                            <div class="col-4 text-center">
+                                <div class="fw-bold" th:text="${game.playerCount}">8</div>
+                                <small class="text-muted">Players</small>
+                            </div>
+                            <div class="col-4 text-center" th:if="${game.duration}">
+                                <div class="fw-bold" th:text="${game.duration}">45m</div>
+                                <small class="text-muted">Duration</small>
+                            </div>
+                        </div>
+                        
+                        <div class="d-grid">
+                            <a th:href="@{/history/game/{gameCode}(gameCode=${game.gameCode})}" 
+                               class="btn btn-outline-primary btn-sm">
+                                <i class="fas fa-play"></i> View Replay
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Empty State -->
+        <div th:if="${playerGames == null or playerGames.isEmpty()}" class="empty-state">
+            <i class="fas fa-search"></i>
+            <h4>No Games Found</h4>
+            <p th:text="'No finished games found for player: ' + ${username}">No games found for this player.</p>
+            <div class="mt-3">
+                <a href="/history" class="btn btn-primary me-2">
+                    <i class="fas fa-list"></i> View All Games
+                </a>
+                <a href="/history/search" class="btn btn-outline-secondary">
+                    <i class="fas fa-search"></i> Search Games
+                </a>
+            </div>
+        </div>
+        
+        <!-- Navigation -->
+        <div class="mt-4 text-center">
+            <a href="/history" class="btn btn-primary me-2">
+                <i class="fas fa-arrow-left"></i> Back to History
+            </a>
+            <a href="/history/search" class="btn btn-outline-secondary">
+                <i class="fas fa-search"></i> Search Games
+            </a>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html> 

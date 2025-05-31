@@ -77,7 +77,7 @@ public class Game {
     
     @NotBlank(message = "Creator username is required")
     @Size(min = 2, max = 20, message = "Creator username must be between 2 and 20 characters")
-    @Pattern(regexp = "^[a-zA-Z0-9_-]+$", message = "Creator username can only contain letters, numbers, underscores, and hyphens")
+    @Pattern(regexp = "^[a-zA-Z0-9_\\-]+$", message = "Creator username can only contain letters, numbers, underscores, and hyphens")
     @Column(nullable = false, length = 20)
     private String createdBy; // Username of the player who created the game
     

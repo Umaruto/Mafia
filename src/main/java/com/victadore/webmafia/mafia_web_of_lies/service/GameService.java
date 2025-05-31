@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.victadore.webmafia.mafia_web_of_lies.exception.GameException;
 import org.springframework.context.annotation.Lazy;
+import com.victadore.webmafia.mafia_web_of_lies.service.PlayerStatisticsService;
 
 @Service
 @Transactional
@@ -19,12 +20,15 @@ public class GameService {
     private final GameRepository gameRepository;
     private final PlayerService playerService;
     private final ActionHistoryService actionHistoryService;
+    private final PlayerStatisticsService playerStatisticsService;
     
     public GameService(GameRepository gameRepository, PlayerService playerService, 
-                      @Lazy ActionHistoryService actionHistoryService) {
+                      @Lazy ActionHistoryService actionHistoryService,
+                      @Lazy PlayerStatisticsService playerStatisticsService) {
         this.gameRepository = gameRepository;
         this.playerService = playerService;
         this.actionHistoryService = actionHistoryService;
+        this.playerStatisticsService = playerStatisticsService;
     }
     
     public Game createGame(String createdBy){
@@ -208,6 +212,13 @@ public class GameService {
                 System.err.println("Failed to record game end event: " + e.getMessage());
             }
             
+            // Update player statistics
+            try {
+                playerStatisticsService.updatePlayerStatisticsAfterGame(game.getGameCode());
+            } catch (Exception e) {
+                System.err.println("Failed to update player statistics: " + e.getMessage());
+            }
+            
             return "CITIZENS";
         } else if (aliveMafia >= aliveCitizens) {
             game.setGameState(GameState.FINISHED);
@@ -222,6 +233,13 @@ public class GameService {
                                                    "Mafia victory - Majority control achieved");
             } catch (Exception e) {
                 System.err.println("Failed to record game end event: " + e.getMessage());
+            }
+            
+            // Update player statistics
+            try {
+                playerStatisticsService.updatePlayerStatisticsAfterGame(game.getGameCode());
+            } catch (Exception e) {
+                System.err.println("Failed to update player statistics: " + e.getMessage());
             }
             
             return "MAFIA";

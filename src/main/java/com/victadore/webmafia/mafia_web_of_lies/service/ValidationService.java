@@ -17,7 +17,7 @@ import java.util.regex.Pattern;
 @Service
 public class ValidationService {
     
-    private static final Pattern USERNAME_PATTERN = Pattern.compile("^[a-zA-Z0-9_-]+$");
+    private static final Pattern USERNAME_PATTERN = Pattern.compile("^[a-zA-Z0-9_\\-]+$");
     private static final Pattern GAME_CODE_PATTERN = Pattern.compile("^[A-Z0-9]{6}$");
     private static final int MIN_USERNAME_LENGTH = 2;
     private static final int MAX_USERNAME_LENGTH = 20;

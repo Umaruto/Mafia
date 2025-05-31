@@ -4,6 +4,7 @@ import com.victadore.webmafia.mafia_web_of_lies.model.*;
 import com.victadore.webmafia.mafia_web_of_lies.repository.GameRepository;
 import com.victadore.webmafia.mafia_web_of_lies.dto.*;
 import com.victadore.webmafia.mafia_web_of_lies.exception.GameException;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.*;
@@ -17,13 +18,15 @@ public class GameLogicService {
     private final GameRepository gameRepository;
     private final WebSocketService webSocketService;
     private final ActionHistoryService actionHistoryService;
+    private final PlayerStatisticsService playerStatisticsService;
 
-    public GameLogicService(GameService gameService, PlayerService playerService, GameRepository gameRepository, WebSocketService webSocketService, ActionHistoryService actionHistoryService) {
+    public GameLogicService(GameService gameService, PlayerService playerService, GameRepository gameRepository, WebSocketService webSocketService, ActionHistoryService actionHistoryService, @Lazy PlayerStatisticsService playerStatisticsService) {
         this.gameService = gameService;
         this.playerService = playerService;
         this.gameRepository = gameRepository;
         this.webSocketService = webSocketService;
         this.actionHistoryService = actionHistoryService;
+        this.playerStatisticsService = playerStatisticsService;
     }
 
     // Start a new day phase
@@ -408,26 +411,66 @@ public class GameLogicService {
 
         if (mafiaCount == 0) {
             game.setWinner("CITIZENS");
+            game.setGameState(GameState.FINISHED);
+            
+            // Save the game FIRST before updating statistics
+            Game savedGame = gameRepository.save(game);
             
             // Record citizen victory
-            actionHistoryService.recordGameEvent(game.getId(), "GAME_END", 
-                                               "Citizens eliminated all Mafia members",
-                                               "Citizens victory - All Mafia eliminated");
+            try {
+                actionHistoryService.recordGameEvent(game.getId(), "GAME_END", 
+                                                   "Citizens eliminated all Mafia members",
+                                                   "Citizens victory - All Mafia eliminated");
+            } catch (Exception e) {
+                System.err.println("Failed to record game end event: " + e.getMessage());
+            }
+            
+            // Update player statistics - with improved error handling
+            updatePlayerStatisticsSafely(savedGame.getGameCode());
             
             return GameState.FINISHED; // Citizens win
         }
         if (mafiaCount >= citizenCount) {
             game.setWinner("MAFIA");
+            game.setGameState(GameState.FINISHED);
+            
+            // Save the game FIRST before updating statistics
+            Game savedGame = gameRepository.save(game);
             
             // Record Mafia victory
-            actionHistoryService.recordGameEvent(game.getId(), "GAME_END", 
-                                               String.format("Mafia achieved majority control (%d Mafia vs %d Citizens)", 
-                                                           mafiaCount, citizenCount),
-                                               "Mafia victory - Majority control achieved");
+            try {
+                actionHistoryService.recordGameEvent(game.getId(), "GAME_END", 
+                                                   String.format("Mafia achieved majority control (%d Mafia vs %d Citizens)", 
+                                                               mafiaCount, citizenCount),
+                                                   "Mafia victory - Majority control achieved");
+            } catch (Exception e) {
+                System.err.println("Failed to record game end event: " + e.getMessage());
+            }
+            
+            // Update player statistics - with improved error handling
+            updatePlayerStatisticsSafely(savedGame.getGameCode());
             
             return GameState.FINISHED; // Mafia win
         }
         return GameState.IN_PROGRESS; // Game continues
+    }
+    
+    /**
+     * Safely update player statistics with comprehensive error handling
+     */
+    private void updatePlayerStatisticsSafely(String gameCode) {
+        try {
+            if (playerStatisticsService != null) {
+                playerStatisticsService.updatePlayerStatisticsAfterGame(gameCode);
+                System.out.println("Successfully updated player statistics for game: " + gameCode);
+            } else {
+                System.err.println("PlayerStatisticsService is null - cannot update statistics");
+            }
+        } catch (Exception e) {
+            System.err.println("Failed to update player statistics for game " + gameCode + ": " + e.getMessage());
+            e.printStackTrace();
+            // Don't rethrow the exception - statistics failure shouldn't break the game flow
+        }
     }
 
     public Game handleVote(String gameCode, VoteRequest voteRequest) {
@@ -624,7 +667,15 @@ public class GameLogicService {
             // Check win conditions
             GameState newState = checkWinConditions(game);
             if (newState == GameState.FINISHED) {
-                game.setGameState(newState);
+                // Game is already saved in checkWinConditions, just broadcast game end
+                webSocketService.broadcastGameUpdate(gameCode, 
+                    new GameEvent("GAME_ENDED", gameCode, Map.of(
+                        "winner", game.getWinner(),
+                        "reason", "night_actions"
+                    ))
+                );
+                
+                return game; // Return the already saved game
             }
             
             webSocketService.broadcastGameUpdate(gameCode, 
@@ -646,11 +697,33 @@ public class GameLogicService {
             targetVotes.put(targetId, targetVotes.getOrDefault(targetId, 0) + 1);
         }
         
-        // Find the target with the most votes
-        return targetVotes.entrySet().stream()
-            .max(Map.Entry.comparingByValue())
+        if (targetVotes.isEmpty()) {
+            return null;
+        }
+        
+        // Find the maximum number of votes
+        int maxVotes = targetVotes.values().stream()
+            .mapToInt(Integer::intValue)
+            .max()
+            .orElse(0);
+        
+        // Find all targets with the maximum votes
+        List<Long> targetsWithMaxVotes = targetVotes.entrySet().stream()
+            .filter(entry -> entry.getValue() == maxVotes)
             .map(Map.Entry::getKey)
-            .orElse(null);
+            .collect(Collectors.toList());
+        
+        // If there's a tie (more than one target with max votes), no one gets killed
+        if (targetsWithMaxVotes.size() > 1) {
+            // Log the tie for debugging
+            actionHistoryService.recordAction(game.getId(), "MAFIA_TIE", "MAFIA_TEAM", null,
+                "Mafia votes resulted in a tie - no elimination",
+                String.format("Tied votes: %d targets with %d votes each", targetsWithMaxVotes.size(), maxVotes), true);
+            return null;
+        }
+        
+        // Return the single target with the most votes
+        return targetsWithMaxVotes.get(0);
     }
 
     private void checkVotingPhaseCompletion(Game game) {
@@ -705,12 +778,20 @@ public class GameLogicService {
                 // Check win conditions after elimination
                 GameState newState = checkWinConditions(game);
                 if (newState == GameState.FINISHED) {
-                    game.setGameState(newState);
-                    // Clear votes and voting status
+                    // Game is already saved in checkWinConditions, just clear votes and broadcast
                     game.getVotes().clear();
                     game.getPlayersWhoVoted().clear();
                     game.getIndividualVotes().clear();
-                    return; // Don't transition phases if game is over
+                    
+                    // Broadcast game end
+                    webSocketService.broadcastGameUpdate(game.getGameCode(), 
+                        new GameEvent("GAME_ENDED", game.getGameCode(), Map.of(
+                            "winner", game.getWinner(),
+                            "reason", "elimination"
+                        ))
+                    );
+                    
+                    return; // Game is over, don't transition phases
                 }
             } else if (playersWithMaxVotes.size() > 1) {
                 // Handle tie vote - no elimination
